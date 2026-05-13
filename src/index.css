@@ -1,0 +1,434 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   GEEPAY — index.css
+   Brand tokens live here as CSS variables.
+   The gradient CTA, sidebar ambient gradient, and chart fills are all
+   defined here so they can be updated from one place.
+───────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base font scaling for smaller viewports ── */
+@layer base {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* ── GeePay Brand Tokens ──────────────────────────────────────────────────── */
+:root {
+
+  /* ── Core brand ── */
+  --gp-cobalt: #383d92;
+  --gp-cobalt-dark: #2f3480;
+  --gp-cobalt-light: rgba(56, 61, 146, 0.10);
+  --gp-sky: #00afeb;
+  --gp-sky-dark: #0097CC;
+  --gp-sky-light: rgba(0, 175, 235, 0.10);
+  --gp-navy: #080C30;
+
+  /* ── Gradient CTA — cobalt to sky ── */
+  /* The signature button gradient. All primary action buttons use this. */
+  --gradient-cta: linear-gradient(115deg, #383d92 0%, #2b6fc2 48%, #00afeb 100%);
+  --gradient-cta-hover: linear-gradient(115deg, #2f3480 0%, #255baa 48%, #0097CC 100%);
+  --gradient-cta-shadow: 0 4px 16px rgba(0, 175, 235, 0.30), 0 1px 3px rgba(56, 61, 146, 0.20);
+
+  /* ── Sidebar ambient gradient ── */
+  /*
+    Layered atmospheric dark gradient.
+    Not a simple top-to-bottom fade — uses radial spots
+    to create depth: a cobalt warmth at top-left, a navy
+    anchor at center, and a near-black base at the bottom.
+    Implemented via a stack of radial and linear gradients.
+  */
+  --sidebar-gradient:
+    radial-gradient(ellipse 140% 60% at 0% 0%, rgba(56, 61, 146, 0.55) 0%, transparent 65%),
+    radial-gradient(ellipse 80% 80% at 100% 30%, rgba(0, 175, 235, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 30% 80%, rgba(43, 111, 194, 0.15) 0%, transparent 70%),
+    linear-gradient(185deg, #0e1245 0%, #080C30 45%, #050820 100%);
+
+  /* Sidebar surface overlays — for active item, hover item fills */
+  --sidebar-item-hover: rgba(255, 255, 255, 0.055);
+  --sidebar-item-active: rgba(0, 175, 235, 0.12);
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-divider: rgba(255, 255, 255, 0.04);
+
+  /* ── Chart gradient fills ── */
+  /* Used in bar chart fills. Applied as SVG linearGradient, not CSS. */
+  --chart-bar-primary-from: rgba(56, 61, 146, 0.90);
+  --chart-bar-primary-to: rgba(56, 61, 146, 0.40);
+  --chart-bar-secondary-from: rgba(0, 175, 235, 0.90);
+  --chart-bar-secondary-to: rgba(0, 175, 235, 0.35);
+  --chart-bar-success-from: rgba(16, 185, 129, 0.85);
+  --chart-bar-success-to: rgba(16, 185, 129, 0.30);
+  --chart-line-cobalt: #383d92;
+  --chart-line-sky: #00afeb;
+  --chart-line-success: #10B981;
+  --chart-line-warning: #F59E0B;
+
+  /* ── shadcn/ui compatible variables ── */
+  --background: 0 0% 100%;
+  --foreground: 236 43% 10%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 236 43% 10%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 236 43% 10%;
+
+  --primary: 234 47% 40%;
+  /* #383d92 */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 198 100% 46%;
+  /* #00afeb */
+  --secondary-foreground: 210 60% 10%;
+
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 10% 48%;
+
+  --accent: 234 47% 40%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 234 47% 40%;
+
+  --radius: 0.5rem;
+
+  /* ── Sidebar variables (for shadcn sidebar compatibility) ── */
+  --sidebar-background: 236 73% 11%;
+  --sidebar-foreground: 0 0% 95%;
+  --sidebar-primary: 198 100% 46%;
+  --sidebar-primary-foreground: 210 60% 10%;
+  --sidebar-accent: 0 0% 100% / 0.055;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 0 0% 100% / 0.06;
+  --sidebar-ring: 198 100% 46%;
+
+  /* ── Chart scale ── */
+  --chart-1: #383d92;
+  --chart-2: #00afeb;
+  --chart-3: #7679CF;
+  --chart-4: #47C0F3;
+  --chart-5: #10B981;
+  --chart-6: #F59E0B;
+}
+
+/* ── Utility classes ──────────────────────────────────────────────────────── */
+@layer utilities {
+
+  /* Gradient CTA — the signature GeePay button fill */
+  .btn-gradient {
+    background: var(--gradient-cta);
+    box-shadow: var(--gradient-cta-shadow);
+    transition: background 200ms ease, box-shadow 200ms ease, transform 100ms ease;
+  }
+
+  .btn-gradient:hover {
+    background: var(--gradient-cta-hover);
+    box-shadow: var(--gradient-cta-shadow), 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Sidebar ambient background */
+  .sidebar-ambient {
+    background: var(--sidebar-gradient);
+  }
+
+  /* Gradient brand text */
+  .gradient-gp-text {
+    background: linear-gradient(115deg, #383d92 0%, #00afeb 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    background: linear-gradient(90deg,
+        #f0f2f5 0%,
+        #e8eaf0 40%,
+        #f0f2f5 80%);
+    background-size: 200% 100%;
+    animation: skeleton 1.8s ease-in-out infinite;
+    border-radius: 8px;
+  }
+
+  /* Live/active pulse indicator */
+  .live-dot {
+    animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+  }
+}
+
+/* ── Global Baselines ─────────────────────────────────────────────────────── */
+@layer base {
+  body {
+    @apply font-sans text-gray-900 bg-white;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: theme('fontFamily.display');
+  }
+}
+
+/* ── Gradient Border ─────────────────────────────────────────────────────── */
+/*
+  In @layer components so Tailwind utilities (fixed, absolute, sticky, etc.)
+  always override position: relative in the cascade.
+*/
+@layer components {
+  .border-gradient {
+    position: relative;
+    /* No border-radius: inherit here — that would override the rounded-* Tailwind
+       class on the same element by inheriting from the *parent* (usually 0).
+       The rounded-* class sets the radius directly; ::before then inherits it correctly. */
+  }
+
+  .border-gradient::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--gradient-border);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    transition: background 200ms ease;
+  }
+
+  .border-gradient:hover::before {
+    background: var(--gradient-border-hover);
+  }
+}
+
+/* ── Premium Surface Layer ────────────────────────────────────────────────── */
+/*
+  CSS variables for the GeePay premium surface treatments.
+  Reference: Design_system.md §Premium Surface Layer
+*/
+:root {
+  /* Gradient text fills */
+  --gradient-text-brand: linear-gradient(115deg, #383d92 0%, #2b6fc2 50%, #00afeb 100%);
+  --gradient-text-stat:  linear-gradient(135deg, #383d92 0%, #1a5fa8 100%);
+
+  /* Gradient borders (pseudo-element technique) */
+  --gradient-border: linear-gradient(135deg, rgba(56,61,146,0.20) 0%, rgba(0,175,235,0.15) 100%);
+  --gradient-border-hover: linear-gradient(135deg, rgba(56,61,146,0.35) 0%, rgba(0,175,235,0.28) 100%);
+
+  /* KPI card cobalt glow */
+  --glow-cobalt-resting: 0 0 0 1px rgba(56,61,146,0.12), 0 4px 24px rgba(56,61,146,0.08);
+  --glow-cobalt-hover:   0 0 0 1px rgba(56,61,146,0.22), 0 8px 32px rgba(56,61,146,0.16);
+
+  /* Shimmer sweep */
+  --shimmer-color: rgba(255, 255, 255, 0.07);
+
+  /* Sidebar seam */
+  --gradient-sidebar-seam: linear-gradient(180deg, #383d92 0%, #00afeb 100%);
+
+  /* Table header rule */
+  --gradient-table-rule: linear-gradient(90deg, #383d92 0%, #00afeb 100%);
+
+  /* Nav glow dot */
+  --glow-nav-dot: 0 0 6px 2px rgba(0, 175, 235, 0.55);
+}
+
+@layer utilities {
+  /* ─── Gradient Text Fill ──────────────────────────────────────────────── */
+
+  .text-gradient-brand {
+    background: var(--gradient-text-brand);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-stat {
+    background: var(--gradient-text-stat);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ─── Shimmer Sweep ───────────────────────────────────────────────────── */
+  /*
+    A diagonal highlight sweeps across the surface on hover.
+    overflow-hidden is required on the shimmer element.
+  */
+
+  .shimmer-surface {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shimmer-surface::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.4) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    transition: none;
+    pointer-events: none;
+  }
+
+  .shimmer-surface:hover::after {
+    transform: translateX(100%);
+    transition: transform 700ms ease;
+  }
+
+  /* ─── KPI Card Glow ───────────────────────────────────────────────────── */
+
+  .card-glow {
+    box-shadow: var(--glow-cobalt-resting);
+    transition: box-shadow 250ms ease;
+  }
+
+  .card-glow:hover {
+    box-shadow: var(--glow-cobalt-hover);
+  }
+
+  /* ─── Sidebar Seam ────────────────────────────────────────────────────── */
+
+  .sidebar-seam {
+    position: relative;
+  }
+
+  .sidebar-seam::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 2px;
+    height: 100%;
+    background: var(--gradient-sidebar-seam);
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  /* ─── Table Header Rule ───────────────────────────────────────────────── */
+
+  .table-header-rule {
+    position: relative;
+  }
+
+  .table-header-rule::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--gradient-table-rule);
+    opacity: 0.30;
+  }
+
+  /* ─── Nav Glow Dot ────────────────────────────────────────────────────── */
+
+  .nav-glow-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #00afeb;
+    box-shadow: var(--glow-nav-dot);
+    flex-shrink: 0;
+  }
+
+  /* ─── Switch Gradient ─────────────────────────────────────────────────── */
+  /*
+    Radix Switch uses data-state="checked". CSS background-image can't be
+    toggled via Tailwind data-variant utilities, so we target it here.
+    The track gets a clean 2-color cobalt→sky gradient when checked.
+    The 3-stop CTA gradient is too compressed on a small track.
+  */
+
+  .switch-gradient[data-state="checked"] {
+    /* 135deg diagonal — avoids the cobalt/sky split looking "cut" by the thumb position */
+    background: linear-gradient(135deg, #383d92 0%, #00afeb 100%);
+    box-shadow: 0 1px 6px rgba(56, 61, 146, 0.25);
+  }
+
+  .switch-gradient[data-state="unchecked"] {
+    background: #e5e7eb; /* gray-200 */
+    box-shadow: none;
+  }
+
+  /* ─── Toggle Gradient ─────────────────────────────────────────────────── */
+  /*
+    Radix Toggle uses data-state="on". Active state gets a 2-color cobalt→sky
+    gradient — cleaner than the 3-stop CTA on a compact pill-sized element.
+  */
+
+  .toggle-gradient[data-state="on"] {
+    background: linear-gradient(135deg, #383d92 0%, #00afeb 100%);
+    color: white;
+    /* No box-shadow — was clipped by overflow:hidden on rounded corners */
+  }
+
+  .toggle-gradient[data-state="off"] {
+    background: transparent;
+  }
+
+  .toggle-gradient[data-state="on"]:hover {
+    background: linear-gradient(135deg, #2f3480 0%, #0097CC 100%);
+  }
+
+  /* ─── Checkbox Gradient ───────────────────────────────────────────────── */
+  /*
+    Radix Checkbox uses data-state="checked". The box background gets the
+    cobalt→sky gradient; border becomes transparent so no outline breaks the fill.
+  */
+
+  .checkbox-gradient[data-state="checked"] {
+    background: linear-gradient(135deg, #383d92 0%, #00afeb 100%);
+    border-color: transparent;
+    color: white;
+  }
+
+  .checkbox-gradient[data-state="unchecked"] {
+    background: transparent;
+  }
+
+  .checkbox-gradient[data-state="indeterminate"] {
+    background: linear-gradient(135deg, #383d92 0%, #00afeb 100%);
+    border-color: transparent;
+    color: white;
+  }
+
+  /* ─── Radio Gradient ──────────────────────────────────────────────────── */
+  /*
+    Radix RadioGroupItem uses data-state="checked".
+    The outer circle gets the gradient; the inner Circle svg inherits white via color:white.
+  */
+
+  .radio-gradient[data-state="checked"] {
+    background: linear-gradient(135deg, #383d92 0%, #00afeb 100%);
+    border-color: transparent;
+    color: white;
+  }
+
+  /* ─── Progress Bar Gradient ───────────────────────────────────────────── */
+  /*
+    Applied to the ProgressPrimitive.Indicator element.
+    The bar always shows the gradient (not state-dependent).
+  */
+
+  .progress-bar-gradient {
+    background: linear-gradient(90deg, #383d92 0%, #00afeb 100%);
+  }
+}
