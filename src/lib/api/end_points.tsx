@@ -38,6 +38,9 @@ export const API: Record<string, string> = {
   MERCHANT_REQUEST_OTP: "api/v1/merchants/keys/:key_id/request-otp",
   MERCHANT_VERIFY_OTP: "api/v1/merchants/keys/:key_id/verify-otp",
 
+  // MERCHANT TRANSACTION END-POINTS
+  MERCHANT_TRANSACTIONS: "api/v1/merchants/transactions",
+
   // PARTICIPANT ENDPOINTS (admin write)
   LIST_PARTICIPANTS: "participants",
   CREATE_PARTICIPANT: "participants",
@@ -63,7 +66,7 @@ export const API: Record<string, string> = {
   // DISBURSEMENT END-POINTS
   DISBURSEMENT_CONFIG: "api/v1/disbursements/config",
   BULK_DISBURSE:       "api/v1/disbursements/bulk",
-  BULK_NAME_LOOKUP:    "api/v1/emoney/name-lookup/bulk",
+  BULK_NAME_LOOKUP:    "api/v1/merchants/emoney/name-lookup/bulk",
 
   // AUDIT TRAIL END-POINTS
   MERCHANT_AUDIT_TRAILS: "api/v1/merchants/audit",

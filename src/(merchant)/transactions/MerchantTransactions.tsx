@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowDownLeft,
@@ -9,6 +9,8 @@ import {
   Download,
   Search,
   SlidersHorizontal,
+  AlertCircle,
+  Loader,
 } from 'lucide-react';
 import { PageTransition } from '@/components/shared/PageTransition';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -28,6 +30,8 @@ import {
 } from '@/components/ui/table';
 import { useTableSort } from '@/hooks/useTableSort';
 import { cn } from '@/lib/utils';
+import { fetchData } from '@/lib/api/crud';
+import type { MerchantTransaction } from '@/types/transaction';
 
 const containerVariants = {
   hidden: {},
@@ -41,12 +45,15 @@ const itemVariants = {
 type TransactionStatus = 'completed' | 'pending' | 'failed';
 type TransactionFilter = 'all' | TransactionStatus;
 
-const mockTransactions = [
-  { id: 'TXN-001', account: 'John Doe',    reference: 'Mobile money collection', amount: 'ZMW 12,450.75', type: 'credit' as const, status: 'completed' as TransactionStatus, timestamp: '2024-01-15 14:30' },
-  { id: 'TXN-002', account: 'Jane Smith',  reference: 'Merchant payout',          amount: 'ZMW 890.00',    type: 'debit'  as const, status: 'pending'   as TransactionStatus, timestamp: '2024-01-15 13:15' },
-  { id: 'TXN-003', account: 'Bob Johnson', reference: 'POS settlement',           amount: 'ZMW 2,500.50',  type: 'credit' as const, status: 'completed' as TransactionStatus, timestamp: '2024-01-15 12:00' },
-  { id: 'TXN-004', account: 'Mary Banda',  reference: 'Wallet reversal',          amount: 'ZMW 420.00',    type: 'debit'  as const, status: 'failed'    as TransactionStatus, timestamp: '2024-01-15 11:42' },
-];
+interface DisplayTransaction {
+  id: string;
+  account: string;
+  reference: string;
+  amount: string;
+  type: 'credit' | 'debit';
+  status: TransactionStatus;
+  timestamp: string;
+}
 
 const statusFilters: Array<{ label: string; value: TransactionFilter }> = [
   { label: 'All', value: 'all' },
@@ -55,13 +62,85 @@ const statusFilters: Array<{ label: string; value: TransactionFilter }> = [
   { label: 'Failed', value: 'failed' },
 ];
 
+/** Transform backend transaction to display format */
+function transformTransaction(txn: MerchantTransaction): DisplayTransaction {
+  const amount = parseFloat(txn.amount.toString());
+  const isCredit = txn.direction?.toLowerCase() === 'credit' || amount > 0;
+  
+  return {
+    id: txn.ext_id,
+    account: txn.source_account || txn.destination_account || 'N/A',
+    reference: txn.external_reference || txn.type || 'Transaction',
+    amount: `ZMW ${Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    type: isCredit ? 'credit' : 'debit',
+    status: (txn.status === 'success' ? 'completed' : txn.status) as TransactionStatus,
+    timestamp: new Date(txn.created_at).toLocaleString(),
+  };
+}
+
 export const MerchantTransactions: React.FC = () => {
+  const [transactions, setTransactions] = useState<DisplayTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<TransactionFilter>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [stats, setStats] = useState({
+    totalReceived: '0.00',
+    totalSent: '0.00',
+    netBalance: '0.00',
+  });
+
+  // Fetch transactions on mount
+  useEffect(() => {
+    const loadTransactions = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await fetchData('MERCHANT_TRANSACTIONS', 'GET');
+        const transactionsPayload = response?.data || response?.transactions;
+        
+        if (!response || !Array.isArray(transactionsPayload)) {
+          setTransactions([]);
+          return;
+        }
+
+        const transformed = transactionsPayload.map(transformTransaction);
+        setTransactions(transformed);
+
+        // Calculate stats
+        const received = transformed
+          .filter(t => t.type === 'credit')
+          .reduce((sum, t) => {
+            const amount = parseFloat(t.amount.replace(/[^0-9.-]/g, ''));
+            return sum + amount;
+          }, 0);
+
+        const sent = transformed
+          .filter(t => t.type === 'debit')
+          .reduce((sum, t) => {
+            const amount = parseFloat(t.amount.replace(/[^0-9.-]/g, ''));
+            return sum + amount;
+          }, 0);
+
+        setStats({
+          totalReceived: received.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          totalSent: sent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          netBalance: (received - sent).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load transactions');
+        setTransactions([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadTransactions();
+  }, []);
 
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    return mockTransactions.filter((txn) => {
+    return transactions.filter((txn) => {
       const matchesStatus = activeFilter === 'all' || txn.status === activeFilter;
       const matchesSearch =
         !q ||
@@ -70,9 +149,37 @@ export const MerchantTransactions: React.FC = () => {
         txn.reference.toLowerCase().includes(q);
       return matchesStatus && matchesSearch;
     });
-  }, [activeFilter, searchTerm]);
+  }, [activeFilter, searchTerm, transactions]);
 
   const { sorted, sortColumn, sortDirection, handleSort } = useTableSort(filtered);
+
+  if (error) {
+    return (
+      <PageTransition className="space-y-8">
+        <PageHeader
+          title="Transactions"
+          subtitle="Review payment movement, investigate transaction state, and prepare exports."
+        />
+        <div className="border-2 border-dashed border-red-100 rounded-2xl flex flex-col items-center justify-center py-16 text-center">
+          <div className="h-14 w-14 rounded-xl bg-red-100 flex items-center justify-center mb-4">
+            <AlertCircle size={26} className="text-red-600" />
+          </div>
+          <h3 className="font-display font-semibold text-text-xl text-gray-900 mb-2">
+            Failed to load transactions
+          </h3>
+          <p className="font-sans text-text-sm text-gray-500 mb-6 max-w-xs px-4">
+            {error}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="btn-gradient shimmer-surface h-10 px-5 rounded-xl text-white font-sans text-text-sm font-semibold"
+          >
+            Retry
+          </button>
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition className="space-y-8">
@@ -85,6 +192,7 @@ export const MerchantTransactions: React.FC = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            disabled={transactions.length === 0}
           >
             <Download size={15} />
             Export
@@ -100,13 +208,13 @@ export const MerchantTransactions: React.FC = () => {
         className="grid grid-cols-1 sm:grid-cols-3 gap-4"
       >
         <motion.div variants={itemVariants}>
-          <StatCard icon={<ArrowDownLeft />} label="Total Received" value="ZMW 13,951.25" iconVariant="success" />
+          <StatCard icon={<ArrowDownLeft />} label="Total Received" value={`ZMW ${stats.totalReceived}`} iconVariant="success" />
         </motion.div>
         <motion.div variants={itemVariants}>
-          <StatCard icon={<ArrowUpRight />} label="Total Sent" value="ZMW 890.00" iconVariant="danger" />
+          <StatCard icon={<ArrowUpRight />} label="Total Sent" value={`ZMW ${stats.totalSent}`} iconVariant="danger" />
         </motion.div>
         <motion.div variants={itemVariants}>
-          <StatCard icon={<ArrowLeftRight />} label="Net Balance" value="ZMW 13,061.25" iconVariant="cobalt" />
+          <StatCard icon={<ArrowLeftRight />} label="Net Balance" value={`ZMW ${stats.netBalance}`} iconVariant="cobalt" />
         </motion.div>
       </motion.div>
 
@@ -157,74 +265,85 @@ export const MerchantTransactions: React.FC = () => {
           </div>
         }
       >
-        <Table>
-          <TableHeader>
-            <TableHeaderRow>
-              <TableHead className="pl-6">ID</TableHead>
-              <SortableTableHead sortKey="account" sortColumn={sortColumn as string | null} sortDirection={sortDirection} onSort={handleSort as (key: string) => void}>Account</SortableTableHead>
-              <TableHead>Reference</TableHead>
-              <SortableTableHead sortKey="amount" sortColumn={sortColumn as string | null} sortDirection={sortDirection} onSort={handleSort as (key: string) => void}>Amount</SortableTableHead>
-              <SortableTableHead sortKey="type" sortColumn={sortColumn as string | null} sortDirection={sortDirection} onSort={handleSort as (key: string) => void}>Type</SortableTableHead>
-              <SortableTableHead sortKey="status" sortColumn={sortColumn as string | null} sortDirection={sortDirection} onSort={handleSort as (key: string) => void}>Status</SortableTableHead>
-              <SortableTableHead sortKey="timestamp" sortColumn={sortColumn as string | null} sortDirection={sortDirection} onSort={handleSort as (key: string) => void}>Timestamp</SortableTableHead>
-              <TableHead className="w-10 pr-5" />
-            </TableHeaderRow>
-          </TableHeader>
-          <TableBody>
-            {sorted.map((txn, idx) => (
-              <motion.tr
-                key={txn.id}
-                initial={{ opacity: 0, x: -4 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.05, duration: 0.3 }}
-                className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/70 transition-colors cursor-pointer group"
-              >
-                <TableCell className="pl-6">
-                  <code className="font-mono text-text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg">
-                    {txn.id}
-                  </code>
-                </TableCell>
-                <TableCell>
-                  <span className="font-sans text-text-sm text-gray-800 font-semibold group-hover:text-gp-cobalt transition-colors">
-                    {txn.account}
-                  </span>
-                </TableCell>
-                <TableCell className="font-sans text-text-sm text-gray-500">
-                  {txn.reference}
-                </TableCell>
-                <TableCell className="font-mono text-text-sm tabular-nums font-semibold">
-                  <span className={txn.type === 'credit' ? 'text-success-fg' : 'text-danger-fg'}>
-                    {txn.type === 'credit' ? '+' : '-'} {txn.amount}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span className={`inline-flex items-center gap-1.5 font-sans text-text-xs font-semibold capitalize ${
-                    txn.type === 'credit' ? 'text-success-fg' : 'text-danger-fg'
-                  }`}>
-                    {txn.type === 'credit'
-                      ? <ArrowDownLeft size={12} />
-                      : <ArrowUpRight size={12} />}
-                    {txn.type}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={txn.status} />
-                </TableCell>
-                <TableCell className="font-mono text-text-xs text-gray-400">
-                  {txn.timestamp}
-                </TableCell>
-                <TableCell className="pr-5 text-right">
-                  <ChevronRight size={16} className="ml-auto text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-gp-cobalt" />
-                </TableCell>
-              </motion.tr>
-            ))}
-          </TableBody>
-        </Table>
-        {sorted.length === 0 && (
+        {isLoading ? (
+          <div className="px-6 py-12 flex flex-col items-center justify-center">
+            <div className="h-12 w-12 rounded-xl bg-gp-cobalt-100 flex items-center justify-center mb-4 animate-pulse">
+              <Loader size={24} className="text-gp-cobalt animate-spin" />
+            </div>
+            <p className="font-display text-text-lg font-semibold text-gray-900">Loading transactions</p>
+            <p className="mt-1 font-sans text-text-sm text-gray-500">Fetching your transaction history...</p>
+          </div>
+        ) : sorted.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <p className="font-display text-text-lg font-semibold text-gray-900">No transactions found</p>
-            <p className="mt-1 font-sans text-text-sm text-gray-500">Try another search or status filter.</p>
+            <p className="mt-1 font-sans text-text-sm text-gray-500">
+              {transactions.length === 0 ? 'Process transactions through the NFS proxy to see them here.' : 'Try another search or status filter.'}
+            </p>
           </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableHeaderRow>
+                <TableHead className="pl-6">ID</TableHead>
+                <SortableTableHead sortKey="account" sortColumn={sortColumn as string | null} sortDirection={sortDirection} onSort={handleSort as (key: string) => void}>Account</SortableTableHead>
+                <TableHead>Reference</TableHead>
+                <SortableTableHead sortKey="amount" sortColumn={sortColumn as string | null} sortDirection={sortDirection} onSort={handleSort as (key: string) => void}>Amount</SortableTableHead>
+                <SortableTableHead sortKey="type" sortColumn={sortColumn as string | null} sortDirection={sortDirection} onSort={handleSort as (key: string) => void}>Type</SortableTableHead>
+                <SortableTableHead sortKey="status" sortColumn={sortColumn as string | null} sortDirection={sortDirection} onSort={handleSort as (key: string) => void}>Status</SortableTableHead>
+                <SortableTableHead sortKey="timestamp" sortColumn={sortColumn as string | null} sortDirection={sortDirection} onSort={handleSort as (key: string) => void}>Timestamp</SortableTableHead>
+                <TableHead className="w-10 pr-5" />
+              </TableHeaderRow>
+            </TableHeader>
+            <TableBody>
+              {sorted.map((txn, idx) => (
+                <motion.tr
+                  key={txn.id}
+                  initial={{ opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.05, duration: 0.3 }}
+                  className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/70 transition-colors cursor-pointer group"
+                >
+                  <TableCell className="pl-6">
+                    <code className="font-mono text-text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg">
+                      {txn.id}
+                    </code>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-sans text-text-sm text-gray-800 font-semibold group-hover:text-gp-cobalt transition-colors">
+                      {txn.account}
+                    </span>
+                  </TableCell>
+                  <TableCell className="font-sans text-text-sm text-gray-500">
+                    {txn.reference}
+                  </TableCell>
+                  <TableCell className="font-mono text-text-sm tabular-nums font-semibold">
+                    <span className={txn.type === 'credit' ? 'text-success-fg' : 'text-danger-fg'}>
+                      {txn.type === 'credit' ? '+' : '-'} {txn.amount}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center gap-1.5 font-sans text-text-xs font-semibold capitalize ${
+                      txn.type === 'credit' ? 'text-success-fg' : 'text-danger-fg'
+                    }`}>
+                      {txn.type === 'credit'
+                        ? <ArrowDownLeft size={12} />
+                        : <ArrowUpRight size={12} />}
+                      {txn.type}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={txn.status} />
+                  </TableCell>
+                  <TableCell className="font-mono text-text-xs text-gray-400">
+                    {txn.timestamp}
+                  </TableCell>
+                  <TableCell className="pr-5 text-right">
+                    <ChevronRight size={16} className="ml-auto text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-gp-cobalt" />
+                  </TableCell>
+                </motion.tr>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </SectionCard>
     </PageTransition>

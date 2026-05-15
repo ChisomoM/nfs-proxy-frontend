@@ -69,6 +69,27 @@ export interface SimulatedTransaction {
   durationMs: number;
 }
 
+/** Merchant transaction as returned from GET /api/v1/merchants/transactions */
+export interface MerchantTransaction {
+  ext_id: string;
+  app_id: string;
+  status: 'pending' | 'success' | 'failed';
+  type?: string;
+  amount: number;
+  direction: string;
+  source_account?: string;
+  destination_account?: string;
+  source_institution?: string;
+  destination_institution?: string;
+  stan?: string;
+  rrn?: string;
+  mti?: string;
+  local_date_time?: string;
+  external_reference?: string;
+  created_at: string;
+  completed_at?: string;
+}
+
 /** Human-readable labels for each transaction type. */
 export const TRANSACTION_TYPE_LABELS: Record<EmoneyTransactionType, string> = {
   CashIn:       'Cash In',

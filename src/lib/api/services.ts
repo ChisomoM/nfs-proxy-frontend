@@ -320,6 +320,22 @@ interface PostOptions {
   referenceId?: boolean; // if true, attach X-Reference-Id header
 }
 
+/** Read the merchant JWT from localStorage — mirrors getAccessTokenFromStorage in crud.tsx. */
+function getSimulatorToken(): string | null {
+  try {
+    const raw = localStorage.getItem('gp_auth_token');
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed.token || parsed.access_token || null;
+    } catch {
+      return raw;
+    }
+  } catch {
+    return null;
+  }
+}
+
 async function postJSON<T = any>(
   url: string,
   body: unknown,
@@ -327,6 +343,8 @@ async function postJSON<T = any>(
 ): Promise<{ parsed: T; durationMs: number; ok: boolean; status: number }> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (opts.referenceId) headers['X-Reference-Id'] = newReferenceId();
+  const token = getSimulatorToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const start = performance.now();
   const res = await fetch(url, {
@@ -397,7 +415,7 @@ async function sendCashIn(
     callback_url: payload.callbackUrl ?? '',
   };
   const { parsed, durationMs } = await postJSON(
-    `${BACKEND_URL}api/v1/emoney/cash-in`,
+    `${BACKEND_URL}api/v1/merchants/emoney/cash-in`,
     body,
     { referenceId: true },
   );
@@ -416,7 +434,7 @@ async function sendCashOut(
     callback_url: payload.callbackUrl ?? '',
   };
   const { parsed, durationMs } = await postJSON(
-    `${BACKEND_URL}api/v1/emoney/cash-out`,
+    `${BACKEND_URL}api/v1/merchants/emoney/cash-out`,
     body,
     { referenceId: true },
   );
@@ -427,6 +445,7 @@ async function sendFundTransfer(
   payload: EmoneyRequest,
 ): Promise<{ response: EmoneyResponse; durationMs: number }> {
   // Note: backend struct field is "reciever" (sic) — must match exactly.
+  // participant_id is the receiver's network/institution code (routing_code from the form).
   const body = {
     amount: payload.amount,
     sender: pickDetail(
@@ -441,12 +460,12 @@ async function sendFundTransfer(
       payload.countryCode,
       payload.receiverName,
     ),
-    routing_code: payload.routingCode,
+    participant_id: payload.routingCode,
     callback_url: payload.callbackUrl ?? '',
     narration: payload.narration ?? '',
   };
   const { parsed, durationMs } = await postJSON(
-    `${BACKEND_URL}api/v1/emoney/person-to-person`,
+    `${BACKEND_URL}api/v1/merchants/emoney/fund-transfer`,
     body,
     { referenceId: true },
   );
@@ -461,7 +480,7 @@ async function sendReversal(
     reason: payload.reason ?? '',
   };
   const { parsed, durationMs } = await postJSON(
-    `${BACKEND_URL}api/v1/emoney/reversal`,
+    `${BACKEND_URL}api/v1/merchants/emoney/reversal`,
     body,
   );
   return { response: mapTransactionEnvelope(parsed), durationMs };
@@ -476,7 +495,7 @@ async function sendNameLookup(
     country_code: payload.countryCode,
   };
   const { parsed, durationMs } = await postJSON(
-    `${BACKEND_URL}api/v1/emoney/name-lookup`,
+    `${BACKEND_URL}api/v1/merchants/emoney/name-lookup`,
     body,
   );
 

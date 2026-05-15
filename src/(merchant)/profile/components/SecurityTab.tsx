@@ -304,7 +304,7 @@ const SecurityTab: React.FC<SecurityTabProps> = ({ user, lastLogin }) => {
       </Card>
 
       {/* 2FA Card */}
-      <Card className="border-gradient">
+      {/* <Card className="border-gradient">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Mail className="h-5 w-5 text-gp-sky" />
@@ -396,7 +396,7 @@ const SecurityTab: React.FC<SecurityTabProps> = ({ user, lastLogin }) => {
             </DialogContent>
           </Dialog>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Last Login */}
       {lastLogin && (
