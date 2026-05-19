@@ -5,6 +5,8 @@ export interface DisbursementField {
   required: boolean
   maxLength?: number
   example?: string
+  // Human-readable description explaining the field and its validation rules
+  description?: string
 }
 
 export type DisbursementRowData = Record<string, string>

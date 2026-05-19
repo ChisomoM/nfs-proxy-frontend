@@ -7,6 +7,28 @@ export const DEFAULT_SCHEMA: DisbursementField[] = [
   { key: 'reference', label: 'Reference',        type: 'string', required: false, maxLength: 50, example: 'Salary - April 2026' },
 ]
 
+export function generateFieldDescription(field: DisbursementField): string {
+  const parts: string[] = []
+  const kind = field.type === 'string' ? 'Text' : field.type === 'number' ? 'Numeric' : 'Phone'
+  parts.push(`${field.label}: ${kind}.`)
+
+  if (field.required) parts.push('Required.')
+
+  if (field.type === 'phone') {
+    parts.push('Accepts Zambian phone numbers in formats +260971234567, 260971234567, or 0971234567.')
+  }
+
+  if (field.type === 'number') {
+    parts.push('Must be a number greater than 0. Decimals allowed.')
+  }
+
+  if (field.maxLength) {
+    parts.push(`Maximum ${field.maxLength} characters.`)
+  }
+
+  return parts.join(' ')
+}
+
 export function validateField(value: string, field: DisbursementField): string | null {
   const trimmed = value.trim()
 

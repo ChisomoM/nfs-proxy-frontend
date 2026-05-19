@@ -5,6 +5,7 @@ import { PageTransition } from '@/components/shared/PageTransition'
 import { useDisbursements } from '@/hooks/useDisbursements'
 import { useNameVerification } from '@/hooks/useNameVerification'
 import { UploadZone } from './UploadZone'
+import { generateFieldDescription } from '@/lib/validations/disbursement'
 import { ConfirmDisbursementModal } from './ConfirmDisbursementModal'
 import { VerificationProgress } from './VerificationProgress'
 import { VerificationSummaryBar } from './VerificationSummaryBar'
@@ -134,11 +135,44 @@ export const DisbursementsPage: React.FC = () => {
               transition={stepTransition}
               className="bg-white"
             >
-              <UploadZone
-                onFileParsed={handleFileParsed}
-                isDragging={isDragging}
-                setIsDragging={setIsDragging}
-              />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <UploadZone
+                    onFileParsed={handleFileParsed}
+                    isDragging={isDragging}
+                    setIsDragging={setIsDragging}
+                  />
+                </div>
+
+                <aside className="lg:col-span-1 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h3 className="font-sans font-medium text-gray-900 mb-2">Upload Help</h3>
+                  <p className="text-text-sm text-gray-600 mb-3">Quick tips for preparing your CSV and understanding the template fields.</p>
+
+                  <ul className="text-text-sm space-y-3">
+                    <li>
+                      <strong className="font-medium">Download template:</strong> Use the <em>Download Template</em> button to get a CSV with headers, descriptions and examples.
+                    </li>
+                    <li>
+                      <strong className="font-medium">Phone format:</strong> Zambian numbers like <span className="font-mono">260971234567</span> or <span className="font-mono">+260971234567</span>.
+                    </li>
+                    <li>
+                      <strong className="font-medium">Amounts:</strong> Use numeric values greater than 0. Decimals allowed.
+                    </li>
+                  </ul>
+
+                  <div className="mt-4">
+                    <h4 className="font-sans font-medium text-gray-800 mb-2">Template Fields</h4>
+                    <div className="space-y-2">
+                      {schema.map((f) => (
+                        <div key={f.key} className="text-text-sm">
+                          <div className="font-medium text-gray-900">{f.label}{f.required && <span className="text-red-500"> *</span>}</div>
+                          <div className="text-gray-600">{(f.description && f.description.trim()) ? f.description : generateFieldDescription(f)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </aside>
+              </div>
             </motion.div>
           )}
 

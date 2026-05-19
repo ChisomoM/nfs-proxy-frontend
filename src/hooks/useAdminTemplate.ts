@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import type { DisbursementField } from '@/types/disbursement'
+import { generateFieldDescription } from '@/lib/validations/disbursement'
 import { AdminDisbursementService } from '@/lib/api/admin-disbursement'
 
 const DEFAULT_FIELD_TYPES = ['string', 'number', 'phone'] as const
@@ -51,6 +52,7 @@ export function useAdminTemplate() {
       type: 'string',
       required: false,
       example: '',
+      description: '',
     }
     setFields([...fields, newField])
   }
@@ -92,7 +94,11 @@ export function useAdminTemplate() {
       }
 
       setIsSaving(true)
-      const response = await AdminDisbursementService.saveTemplate(fields)
+      // Ensure descriptions exist (fallback to generated) before saving
+      const normalized = fields.map(f => ({ ...f, description: f.description ?? generateFieldDescription(f) }))
+      const response = await AdminDisbursementService.saveTemplate(normalized)
+      // Update local fields to include any defaulted descriptions
+      setFields(normalized)
       setLastUpdated(response.updated_at)
       setLastUpdatedBy(response.updated_by || null)
       toast.success('Template saved successfully')
