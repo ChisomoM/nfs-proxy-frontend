@@ -36,12 +36,12 @@ import { cn } from '@/lib/utils';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TX_TYPES: EmoneyTransactionType[] = [
-  'CashIn',
-  'CashOut',
+  // 'CashIn',
+  // 'CashOut',
   'FundTransfer',
-  'Inquiry',
+  // 'Inquiry',
   'NameLookup',
-  'Reversal',
+  // 'Reversal',
 ];
 
 const HISTORY_KEY = 'gp_simulator_history';
@@ -238,6 +238,8 @@ export function SimulatorPage() {
   } | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+  const [pollAttempts, setPollAttempts] = useState(0);
 
   // History
   const [history, setHistory] = useState<SimulatedTransaction[]>(() => {
@@ -260,6 +262,65 @@ export function SimulatorPage() {
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
   }, [history]);
+
+  // Auto-poll pending transactions (202 Accepted)
+  useEffect(() => {
+    if (!lastResult?.response?.status || lastResult.response.status !== 'pending' || !lastResult.response.externalReference) {
+      setIsPolling(false);
+      return; // Not polling
+    }
+
+    const externalRef = lastResult.response.externalReference;
+    let pollCount = 0;
+    const maxPolls = 60; // 2 seconds * 60 = 120 seconds max
+
+    setIsPolling(true);
+    setPollAttempts(0);
+    console.log(`🔄 Starting polling for transaction ${externalRef}`);
+
+    const pollInterval = setInterval(async () => {
+      pollCount++;
+      setPollAttempts(pollCount);
+
+      try {
+        console.log(`📡 Poll attempt ${pollCount}/${maxPolls} for ${externalRef}`);
+        const updatedResponse = await SimulatorService.checkTransactionStatus(externalRef);
+        
+        console.log(`✅ Poll response - Status: ${updatedResponse.status}`, updatedResponse);
+        
+        setLastResult((prev) => {
+          if (!prev) return null;
+          return { ...prev, response: updatedResponse };
+        });
+
+        // Update history entry with new status
+        setHistory((prev) =>
+          prev.map((entry) =>
+            entry.response.externalReference === externalRef
+              ? { ...entry, response: updatedResponse }
+              : entry,
+          ),
+        );
+
+        // Stop polling if no longer pending
+        if (updatedResponse.status !== 'pending') {
+          console.log(`🎉 Transaction completed with status: ${updatedResponse.status}`);
+          clearInterval(pollInterval);
+          setIsPolling(false);
+        }
+      } catch (err) {
+        console.error(`⚠️ Poll error (attempt ${pollCount}):`, err);
+        // Continue polling on error
+      }
+
+      // Max timeout: stop after 120 seconds
+      if (pollCount >= maxPolls) {
+        clearInterval(pollInterval);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [lastResult?.response?.externalReference, lastResult?.response?.status]);
 
   // Reset form when type changes
   const handleTypeChange = useCallback((type: EmoneyTransactionType) => {
@@ -630,7 +691,31 @@ export function SimulatorPage() {
                         animate={{ scale: 1 }}
                         transition={{ duration: 0.3 }}
                       >
-                        {lastResult.response.success ? (
+                        {lastResult.response.status === 'pending' ? (
+                          <div className="flex items-start gap-3">
+                            <motion.div
+                              animate={{ scale: [1, 1.15, 1] }}
+                              transition={{ duration: 0.8, repeat: Infinity }}
+                              className="flex-shrink-0 h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center"
+                            >
+                              <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                                className="w-5 h-5"
+                              >
+                                <Repeat2 size={20} className="text-blue-600" />
+                              </motion.div>
+                            </motion.div>
+                            <div>
+                              <h3 className="font-display font-bold text-text-lg text-gray-900">
+                                Pending
+                              </h3>
+                              <p className="font-sans text-text-xs text-gray-600 mt-0.5">
+                                {TRANSACTION_TYPE_LABELS[lastResult.txType]} • Waiting for confirmation…
+                              </p>
+                            </div>
+                          </div>
+                        ) : lastResult.response.success ? (
                           <div className="flex items-start gap-3">
                             <motion.div
                               animate={{ scale: [1, 1.1, 1] }}
@@ -664,6 +749,31 @@ export function SimulatorPage() {
                           </div>
                         )}
                       </motion.div>
+
+                      {/* Polling Status Indicator */}
+                      {isPolling && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="px-4 py-3 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-3"
+                        >
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                            className="w-4 h-4"
+                          >
+                            <Repeat2 size={16} className="text-blue-600" />
+                          </motion.div>
+                          <div className="flex-1">
+                            <p className="font-sans text-text-xs font-medium text-blue-700">
+                              Polling in progress
+                            </p>
+                            <p className="font-sans text-text-xs text-blue-600">
+                              Attempt {pollAttempts}/60 • External Ref: {lastResult.response.externalReference}
+                            </p>
+                          </div>
+                        </motion.div>
+                      )}
 
                       {/* Response details */}
                       <div className="space-y-4 pt-2 border-t border-gray-100">

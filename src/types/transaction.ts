@@ -58,6 +58,10 @@ export interface EmoneyResponse {
   // Populated on Name Lookup responses
   name?: string;
   address?: string;
+  // Async transaction tracking (202 Accepted)
+  httpStatus?: number;
+  status?: 'pending' | 'success' | 'failed';
+  externalReference?: string;
 }
 
 export interface SimulatedTransaction {

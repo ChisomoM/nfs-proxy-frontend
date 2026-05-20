@@ -159,7 +159,7 @@ export const DisbursementsPage: React.FC = () => {
                   />
                 </div>
 
-                <aside className="lg:col-span-1 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <aside className="lg:col-span-1 bg-white border border-gray-200 rounded-lg p-4">
                   <h3 className="font-sans font-medium text-gray-900 mb-2">Template Fields</h3>
                   {sidebarLoading ? (
                     <p className="text-text-sm text-gray-600">Loading template from server…</p>

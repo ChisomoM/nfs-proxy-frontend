@@ -157,6 +157,26 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
         </div>
       </div>
 
+      {/* Webhook URL */}
+      <div className="space-y-1.5">
+        <Label htmlFor="webhook_url" className="font-sans text-text-sm font-medium text-gray-700">
+          Webhook URL
+          <span className="text-gray-400 font-normal ml-2">(optional)</span>
+        </Label>
+        <Input
+          id="webhook_url"
+          type="url"
+          placeholder="https://your-api.example.com/webhook"
+          value={formData.webhook_url}
+          onChange={(e) => handleChange('webhook_url', e.target.value)}
+          disabled={isSubmitting}
+          className="font-sans text-text-sm rounded-xl border-gray-200 focus:border-gp-cobalt focus:ring-2 focus:ring-gp-cobalt/20"
+        />
+        <p className="font-sans text-text-xs text-gray-500">
+          We'll send transaction events to this URL as they complete. Must be HTTPS and publicly accessible.
+        </p>
+      </div>
+
       {/* Submit error */}
       {errors.submit && (
         <div className="bg-danger-light border border-danger/20 text-danger-fg font-sans text-text-sm px-4 py-3 rounded-xl">

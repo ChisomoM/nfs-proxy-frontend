@@ -140,6 +140,31 @@ export const ProjectService = {
     };
   },
 
+  // Update project
+  async updateProject(id: string, input: Partial<CreateProjectInput>): Promise<Project> {
+    const response = await post("UPDATE_PROJECT", {
+      display_name: input.name,
+      description: input.description,
+      webhook_url: input.webhook_url,
+      app_type: input.app_type,
+    }, { id });
+
+    const app = response.app || response;
+
+    return {
+      id: app.ext_id || app.id,
+      name: app.display_name,
+      description: app.description || '',
+      webhook_url: app.webhook_url || '',
+      primary_environment: app.primary_environment || 'sandbox',
+      app_type: app.app_type || 'integration',
+      merchant_id: app.merchant_id,
+      is_active: app.status === 'active',
+      created_at: app.created_at,
+      updated_at: app.updated_at,
+    };
+  },
+
   // Delete project
   async deleteProject(id: string): Promise<void> {
     await remove("DELETE_PROJECT", { id });
@@ -306,6 +331,32 @@ export const SimulatorService = {
       default:             return sendMock(payload);
     }
   },
+
+  async checkTransactionStatus(
+    externalRef: string,
+  ): Promise<EmoneyResponse> {
+    const token = getSimulatorToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(
+      `${BACKEND_URL}api/v1/merchants/transactions/${externalRef}`,
+      { method: 'GET', headers },
+    );
+
+    let parsed: any = null;
+    try {
+      parsed = await res.json();
+    } catch {}
+
+    if (!res.ok) {
+      const msg =
+        parsed?.error ?? parsed?.message ?? `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+
+    return mapTransactionEnvelope(parsed, res.status);
+  },
 };
 
 // ─── HTTP helpers ────────────────────────────────────────────────────────────
@@ -317,7 +368,7 @@ function newReferenceId(): string {
 }
 
 interface PostOptions {
-  referenceId?: boolean; // if true, attach X-Reference-Id header
+  referenceId?: boolean | string; // if true, generate and attach X-Reference-Id; if string, use that value
 }
 
 /** Read the merchant JWT from localStorage — mirrors getAccessTokenFromStorage in crud.tsx. */
@@ -342,7 +393,9 @@ async function postJSON<T = any>(
   opts: PostOptions = {},
 ): Promise<{ parsed: T; durationMs: number; ok: boolean; status: number }> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (opts.referenceId) headers['X-Reference-Id'] = newReferenceId();
+  if (opts.referenceId) {
+    headers['X-Reference-Id'] = typeof opts.referenceId === 'string' ? opts.referenceId : newReferenceId();
+  }
   const token = getSimulatorToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -374,8 +427,9 @@ async function postJSON<T = any>(
  * Real endpoints wrap responses in `common.Response { message, code, data: TransactionModel }`.
  * The transaction model carries rrn/stan/mti once the NFS round-trip lands.
  * We map this to the flat EmoneyResponse the UI already renders.
+ * For 202 Accepted responses, also extract httpStatus, status, and externalReference.
  */
-function mapTransactionEnvelope(parsed: any): EmoneyResponse {
+function mapTransactionEnvelope(parsed: any, httpStatus?: number): EmoneyResponse {
   const message: string | undefined = parsed?.message;
   const data = parsed?.data ?? {};
   const success = message === 'success' || message === 'reversed';
@@ -387,6 +441,12 @@ function mapTransactionEnvelope(parsed: any): EmoneyResponse {
     stan: data.stan || undefined,
     rawMti: data.mti || undefined,
     message,
+    name: data.name || undefined,
+    address: data.address || undefined,
+    balance: data.balance !== undefined ? data.balance : undefined,
+    httpStatus,
+    status: data.status || (message === 'pending' ? 'pending' : undefined),
+    externalReference: data.external_reference || data.id,
   };
 }
 
@@ -414,12 +474,12 @@ async function sendCashIn(
     terminal_id: payload.terminalId ?? '',
     callback_url: payload.callbackUrl ?? '',
   };
-  const { parsed, durationMs } = await postJSON(
+  const { parsed, durationMs, status } = await postJSON(
     `${BACKEND_URL}api/v1/merchants/emoney/cash-in`,
     body,
     { referenceId: true },
   );
-  return { response: mapTransactionEnvelope(parsed), durationMs };
+  return { response: mapTransactionEnvelope(parsed, status), durationMs };
 }
 
 async function sendCashOut(
@@ -433,12 +493,12 @@ async function sendCashOut(
     terminal_id: payload.terminalId ?? '',
     callback_url: payload.callbackUrl ?? '',
   };
-  const { parsed, durationMs } = await postJSON(
+  const { parsed, durationMs, status } = await postJSON(
     `${BACKEND_URL}api/v1/merchants/emoney/cash-out`,
     body,
     { referenceId: true },
   );
-  return { response: mapTransactionEnvelope(parsed), durationMs };
+  return { response: mapTransactionEnvelope(parsed, status), durationMs };
 }
 
 async function sendFundTransfer(
@@ -464,12 +524,12 @@ async function sendFundTransfer(
     callback_url: payload.callbackUrl ?? '',
     narration: payload.narration ?? '',
   };
-  const { parsed, durationMs } = await postJSON(
+  const { parsed, durationMs, status } = await postJSON(
     `${BACKEND_URL}api/v1/merchants/emoney/fund-transfer`,
     body,
     { referenceId: true },
   );
-  return { response: mapTransactionEnvelope(parsed), durationMs };
+  return { response: mapTransactionEnvelope(parsed, status), durationMs };
 }
 
 async function sendReversal(
@@ -479,11 +539,11 @@ async function sendReversal(
     external_ref: payload.externalRef,
     reason: payload.reason ?? '',
   };
-  const { parsed, durationMs } = await postJSON(
+  const { parsed, durationMs, status } = await postJSON(
     `${BACKEND_URL}api/v1/merchants/emoney/reversal`,
     body,
   );
-  return { response: mapTransactionEnvelope(parsed), durationMs };
+  return { response: mapTransactionEnvelope(parsed, status), durationMs };
 }
 
 async function sendNameLookup(
@@ -494,24 +554,12 @@ async function sendNameLookup(
     msisdn: payload.msisdn,
     country_code: payload.countryCode,
   };
-  const { parsed, durationMs } = await postJSON(
+  const { parsed, durationMs, status } = await postJSON(
     `${BACKEND_URL}api/v1/merchants/emoney/name-lookup`,
     body,
+    { referenceId: true },
   );
-
-  const status = parsed?.status;
-  const success = status === 0 || parsed?.message === 'success';
-  const data = parsed?.data ?? {};
-  return {
-    response: {
-      success,
-      responseCode: success ? '00' : String(status ?? ''),
-      message: parsed?.message,
-      name: data.name,
-      address: data.address,
-    },
-    durationMs,
-  };
+  return { response: mapTransactionEnvelope(parsed, status), durationMs };
 }
 
 // Build a Detail object from optional msisdn/pan/country/name. Empty values are
