@@ -142,12 +142,12 @@ export const ProjectService = {
 
   // Update project
   async updateProject(id: string, input: Partial<CreateProjectInput>): Promise<Project> {
-    const response = await post("UPDATE_PROJECT", {
+    const response = await fetchData("UPDATE_PROJECT", "PUT", { id }, {
       display_name: input.name,
       description: input.description,
       webhook_url: input.webhook_url,
       app_type: input.app_type,
-    }, { id });
+    });
 
     const app = response.app || response;
 
