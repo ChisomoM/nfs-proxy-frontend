@@ -33,6 +33,7 @@ export const CreateMerchantDialog: React.FC<CreateMerchantDialogProps> = ({
   const [merchantData, setMerchantData] = useState({
     business_name: '',
     participant_id: '',
+    create_participant: false,
   });
   const [adminData, setAdminData] = useState({
     email: '',
@@ -42,7 +43,7 @@ export const CreateMerchantDialog: React.FC<CreateMerchantDialogProps> = ({
 
   const resetForm = () => {
     setStep('details');
-    setMerchantData({ business_name: '', participant_id: '' });
+    setMerchantData({ business_name: '', participant_id: '', create_participant: false });
     setAdminData({ email: '', password: '' });
     setResponse(null);
   };
@@ -67,7 +68,8 @@ export const CreateMerchantDialog: React.FC<CreateMerchantDialogProps> = ({
       const result = await post('CREATE_MERCHANT', {
         business_name: merchantData.business_name,
         participant_id: merchantData.participant_id,
-        contact_details: { email: adminData.email }
+        contact_details: { email: adminData.email },
+        create_participant: merchantData.create_participant
       });
 
       // 2. Accept Invite Directly (Set the admin password)
@@ -135,6 +137,18 @@ export const CreateMerchantDialog: React.FC<CreateMerchantDialogProps> = ({
                     value={merchantData.participant_id}
                     onChange={(v) => setMerchantData({...merchantData, participant_id: v})}
                   />
+                  <div className="flex items-center space-x-3 pt-2">
+                    <input 
+                      type="checkbox" 
+                      id="create-participant"
+                      checked={merchantData.create_participant}
+                      onChange={(e) => setMerchantData({...merchantData, create_participant: e.target.checked})}
+                      className="w-4 h-4 rounded border-gray-300 text-gp-cobalt focus:ring-gp-cobalt cursor-pointer"
+                    />
+                    <label htmlFor="create-participant" className="text-sm text-gray-700 cursor-pointer">
+                      Auto-create participant if it doesn't exist
+                    </label>
+                  </div>
                 </div>
 
                 <DialogFooter className="pt-4">
@@ -241,6 +255,12 @@ export const CreateMerchantDialog: React.FC<CreateMerchantDialogProps> = ({
                     {response?.invite_url}
                   </div>
                 </div>
+
+                {response?.participant_warning && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-left">
+                    <p className="text-sm text-yellow-800">{response.participant_warning}</p>
+                  </div>
+                )}
 
                 <Button 
                   onClick={() => onOpenChange(false)}
