@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import type {
   DisbursementField,
@@ -8,42 +8,23 @@ import type {
   VerifiedDisbursementRow,
   BulkNameLookupItem,
   BulkNameLookupItemResult,
+  BulkNameLookupResultEvent,
+  BulkNameLookupCompleteEvent,
 } from '@/types/disbursement'
 import { BulkNameLookupService } from '@/lib/api/services'
+import { onEvent, offEvent, getSocket } from '@/lib/api/socket'
 import { nameSimilarity, classifyMatch } from '@/lib/utils/nameMatcher'
+import { normalizePhoneNumber } from '@/lib/utils'
 
-const CHUNK_SIZE = 10
-const PARTICIPANT_ID = '000261'
-
-/**
- * Normalise a raw phone value from the CSV into a 9-digit msisdn string.
- * Strips a leading '+' and a leading '260' country code if present.
- * Returns the value as-is when it is already 9 digits or shorter.
- */
-function normalisePhone(raw: string): string {
-  let s = raw.replace(/\s+/g, '').replace(/^\+/, '')
-  if (s.startsWith('260') && s.length > 9) {
-    s = s.slice(3)
-  }
-  return s
-}
-
-/**
- * Build a BulkNameLookupItem from a DisbursementRow.
- * Reads `row.data.phone` (or `row.data.msisdn`) for the phone number.
- */
 function buildLookupItem(row: DisbursementRow): BulkNameLookupItem {
-  const rawPhone = row.data['phone'] ?? row.data['msisdn'] ?? ''
+  const rawPhone = row.data['receiver_msisdn'] ?? ''
+  const participantId = row.data['participant_id'] ?? ''
   return {
-    msisdn: rawPhone ? normalisePhone(rawPhone) : undefined,
-    participant_id: PARTICIPANT_ID,
+    msisdn: rawPhone ? normalizePhoneNumber(rawPhone) : undefined,
+    participant_id: participantId,
   }
 }
 
-/**
- * Convert a single BulkNameLookupItemResult into a VerificationResult,
- * given the original CSV name for comparison.
- */
 function toVerificationResult(
   result: BulkNameLookupItemResult,
   csvName: string,
@@ -52,20 +33,59 @@ function toVerificationResult(
     return {
       status: 'lookup-failed',
       retrievedName: null,
+      retrievedParticipantId: null,
       similarity: 0,
+      participantIdMatch: false,
       errorMessage: result.error ?? result.error_code ?? 'Lookup failed',
       elapsed_ms: result.elapsed_ms,
     }
   }
   const retrievedName = result.name || null
-  const status = classifyMatch(csvName, retrievedName)
+  const retrievedParticipantId = result.participant_id || null
+  // const participantIdMatch = csvParticipantId === retrievedParticipantId
+  const nameStatus = classifyMatch(csvName, retrievedName)
   const similarity = retrievedName ? nameSimilarity(csvName, retrievedName) : 0
+
+  // For now, only use nameStatus for verification
+  // TODO: Revisit participant_id validation later when we clarify sender vs receiver participant_id logic
+  let status: VerificationStatus = nameStatus
+  // if (participantIdMatch && nameStatus === 'exact-match') {
+  //   status = 'exact-match'
+  // } else if ((participantIdMatch || nameStatus === 'exact-match') && (participantIdMatch || nameStatus !== 'no-match')) {
+  //   status = 'partial-match'
+  // } else {
+  //   status = 'no-match'
+  // }
+
   return {
     status,
     retrievedName,
+    retrievedParticipantId,
     similarity,
+    participantIdMatch: false, // CSV participant_id is sender's, not receiver's, so no meaningful match comparison
     elapsed_ms: result.elapsed_ms,
   }
+}
+
+function applyResult(
+  prev: VerifiedDisbursementRow[],
+  result: BulkNameLookupItemResult,
+): VerifiedDisbursementRow[] {
+  const next = [...prev]
+  const rowIdx = next.findIndex(r => {
+    const msisdn = r.data['receiver_msisdn']
+      ? normalizePhoneNumber(r.data['receiver_msisdn'])
+      : undefined
+    return (result.msisdn && msisdn === result.msisdn) ||
+           (result.pan && r.data['receiver_pan'] === result.pan)
+  })
+  if (rowIdx === -1) return next
+  const csvName = next[rowIdx].data['receiver_name'] ?? ''
+  next[rowIdx] = {
+    ...next[rowIdx],
+    verification: toVerificationResult(result, csvName),
+  }
+  return next
 }
 
 export interface VerificationSummary {
@@ -100,12 +120,163 @@ function computeSummary(rows: VerifiedDisbursementRow[]): VerificationSummary {
   return summary
 }
 
-export function useNameVerification() {
+export function useNameVerification(onRowRemove?: (rowId: string) => void) {
   const [verifiedRows, setVerifiedRows] = useState<VerifiedDisbursementRow[]>([])
   const [verificationPhase, setVerificationPhase] = useState<VerificationPhase>('idle')
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
   const [filter, setFilter] = useState<VerificationStatus | 'all'>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  // Tracks the active batch so socket handlers and reconnect backfill can reference it
+  const activeBatchRef = useRef<{ batchId: string; total: number } | null>(null)
+  // Polling fallback interval — used when socket is unavailable
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // ─── Socket listener helpers ──────────────────────────────────────────────
+
+  const handleResultEvent = useCallback((data: BulkNameLookupResultEvent) => {
+    console.log('[verify] result event received', data)
+    if (!activeBatchRef.current || data.batch_id !== activeBatchRef.current.batchId) {
+      console.warn('[verify] result event ignored — batch mismatch or no active batch', { active: activeBatchRef.current?.batchId, received: data.batch_id })
+      return
+    }
+    setVerifiedRows(prev => applyResult(prev, data.result))
+    setProgress(prev => ({ ...prev, completed: prev.completed + 1 }))
+  }, [])
+
+  const handleCompleteEvent = useCallback((data: BulkNameLookupCompleteEvent) => {
+    console.log('[verify] complete event received', data)
+    if (!activeBatchRef.current || data.batch_id !== activeBatchRef.current.batchId) {
+      console.warn('[verify] complete event ignored — batch mismatch or no active batch', { active: activeBatchRef.current?.batchId, received: data.batch_id })
+      return
+    }
+    if (pollIntervalRef.current !== null) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+    offEvent('emoney.bulk_name_lookup.result', handleResultEvent)
+    offEvent('emoney.bulk_name_lookup.complete', handleCompleteEvent)
+    activeBatchRef.current = null
+    setVerificationPhase(prev => prev === 'running' ? 'done' : prev)
+  }, [handleResultEvent])
+
+  // ─── Reconnect backfill ───────────────────────────────────────────────────
+
+  useEffect(() => {
+    const socket = getSocket()
+    if (!socket) return
+
+    const onReconnect = async () => {
+      const batch = activeBatchRef.current
+      if (!batch) return
+      try {
+        const status = await BulkNameLookupService.getStatus(batch.batchId)
+        for (const result of status.results) {
+          setVerifiedRows(prev => applyResult(prev, result))
+        }
+        setProgress({ completed: status.completed, total: status.total })
+        if (status.completed >= status.total) {
+          offEvent('emoney.bulk_name_lookup.result', handleResultEvent)
+          offEvent('emoney.bulk_name_lookup.complete', handleCompleteEvent)
+          activeBatchRef.current = null
+          setVerificationPhase('done')
+        }
+      } catch {
+        // backfill failed — user can retry
+      }
+    }
+
+    socket.on('connect', onReconnect)
+    return () => { socket.off('connect', onReconnect) }
+  }, [handleResultEvent, handleCompleteEvent])
+
+  // ─── Core submit helper ───────────────────────────────────────────────────
+
+  const submitBatch = useCallback(async (
+    rows: VerifiedDisbursementRow[],
+    markPending: boolean,
+  ) => {
+    console.log('[verify] submitBatch called — rows:', rows.length, 'items:', rows.map(r => buildLookupItem(r)))
+    const items = rows.map(r => buildLookupItem(r))
+
+    if (markPending) {
+      setVerifiedRows(prev =>
+        prev.map(r =>
+          rows.some(fr => fr.id === r.id)
+            ? { ...r, verification: { status: 'pending', retrievedName: null, retrievedParticipantId: null, similarity: 0, participantIdMatch: false } }
+            : r,
+        )
+      )
+    }
+
+    // Register listeners before submitting so no result events are missed
+    // during the network round-trip for the 202 response.
+    onEvent('emoney.bulk_name_lookup.result', handleResultEvent)
+    onEvent('emoney.bulk_name_lookup.complete', handleCompleteEvent)
+
+    let batchId: string
+    let total: number
+    try {
+      console.log('[verify] calling BulkNameLookupService.submit with', items.length, 'items')
+      const res = await BulkNameLookupService.submit(items)
+      console.log('[verify] submit response:', res)
+      batchId = res.batch_id
+      total = res.total
+    } catch (err) {
+      console.error('[verify] submit threw:', err)
+      offEvent('emoney.bulk_name_lookup.result', handleResultEvent)
+      offEvent('emoney.bulk_name_lookup.complete', handleCompleteEvent)
+      setVerifiedRows(prev =>
+        prev.map(r =>
+          rows.some(fr => fr.id === r.id)
+            ? { ...r, verification: { status: 'lookup-failed', retrievedName: null, retrievedParticipantId: null, similarity: 0, participantIdMatch: false, errorMessage: 'Network error' } }
+            : r,
+        )
+      )
+      setVerificationPhase('error')
+      toast.error('Could not submit verification batch. Check your connection.')
+      return
+    }
+
+    console.log('[verify] batch accepted — batchId:', batchId, 'total:', total)
+    activeBatchRef.current = { batchId, total }
+    setProgress({ completed: 0, total })
+
+    // Polling fallback — activates when socket is not connected at submission time.
+    // applyResult is idempotent so overlapping socket events + polls are safe.
+    if (!getSocket()?.connected) {
+      console.log('[verify] socket not connected — starting poll fallback for batch', batchId)
+      if (pollIntervalRef.current !== null) clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = setInterval(async () => {
+        const batch = activeBatchRef.current
+        if (!batch) {
+          if (pollIntervalRef.current !== null) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null }
+          return
+        }
+        try {
+          const status = await BulkNameLookupService.getStatus(batch.batchId)
+          console.log('[verify] poll:', status.completed, '/', status.total, 'results so far')
+          setVerifiedRows(prev =>
+            (status.results as BulkNameLookupItemResult[]).reduce(
+              (acc, result) => applyResult(acc, result),
+              prev,
+            )
+          )
+          setProgress({ completed: status.completed, total: status.total })
+          if (status.completed >= status.total) {
+            if (pollIntervalRef.current !== null) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null }
+            offEvent('emoney.bulk_name_lookup.result', handleResultEvent)
+            offEvent('emoney.bulk_name_lookup.complete', handleCompleteEvent)
+            activeBatchRef.current = null
+            setVerificationPhase('done')
+          }
+        } catch (err) {
+          console.error('[verify] poll error:', err)
+          if (pollIntervalRef.current !== null) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null }
+        }
+      }, 1500)
+    }
+  }, [handleResultEvent, handleCompleteEvent])
 
   // ─── Start verification ───────────────────────────────────────────────────
 
@@ -115,208 +286,35 @@ export function useNameVerification() {
   ) => {
     if (rows.length === 0) return
 
-    // Reset state, seed all rows as 'pending'
     const initialRows: VerifiedDisbursementRow[] = rows.map(row => ({
       ...row,
-      verification: { status: 'pending', retrievedName: null, similarity: 0 },
+      verification: { status: 'pending', retrievedName: null, retrievedParticipantId: null, similarity: 0, participantIdMatch: false },
     }))
     setVerifiedRows(initialRows)
     setVerificationPhase('running')
-    setProgress({ completed: 0, total: rows.length })
     setFilter('all')
     setSelected(new Set())
 
-    let completed = 0
-    let hasError = false
-
-    for (let start = 0; start < rows.length; start += CHUNK_SIZE) {
-      const chunk = rows.slice(start, start + CHUNK_SIZE)
-      const items: BulkNameLookupItem[] = chunk.map(buildLookupItem)
-
-      try {
-        const response = await BulkNameLookupService.verify(items)
-
-        setVerifiedRows(prev => {
-          const next = [...prev]
-          chunk.forEach((row, idx) => {
-            const rowIdx = next.findIndex(r => r.id === row.id)
-            if (rowIdx === -1) return
-            const result = response.results[idx]
-            if (!result) {
-              // Should not happen, but guard anyway
-              next[rowIdx] = {
-                ...next[rowIdx],
-                verification: {
-                  status: 'lookup-failed',
-                  retrievedName: null,
-                  similarity: 0,
-                  errorMessage: 'No result returned',
-                },
-              }
-            } else {
-              const csvName = row.data['name'] ?? ''
-              next[rowIdx] = {
-                ...next[rowIdx],
-                verification: toVerificationResult(result, csvName),
-              }
-            }
-          })
-          return next
-        })
-      } catch {
-        // Entire chunk failed (network error) — mark all as lookup-failed
-        hasError = true
-        setVerifiedRows(prev => {
-          const next = [...prev]
-          chunk.forEach(row => {
-            const rowIdx = next.findIndex(r => r.id === row.id)
-            if (rowIdx === -1) return
-            next[rowIdx] = {
-              ...next[rowIdx],
-              verification: {
-                status: 'lookup-failed',
-                retrievedName: null,
-                similarity: 0,
-                errorMessage: 'Network error',
-              },
-            }
-          })
-          return next
-        })
-      }
-
-      completed += chunk.length
-      setProgress({ completed, total: rows.length })
-    }
-
-    setVerificationPhase(hasError ? 'error' : 'done')
-
-    if (hasError) {
-      toast.error('Some accounts could not be verified. Retry failed rows or remove them.')
-    }
-  }, [])
+    await submitBatch(initialRows, false)
+  }, [submitBatch])
 
   // ─── Retry failed rows ────────────────────────────────────────────────────
 
   const retryFailed = useCallback(async () => {
     const failedRows = verifiedRows.filter(r => r.verification.status === 'lookup-failed')
     if (failedRows.length === 0) return
-
-    // Mark them back to pending
-    setVerifiedRows(prev =>
-      prev.map(r =>
-        r.verification.status === 'lookup-failed'
-          ? { ...r, verification: { status: 'pending', retrievedName: null, similarity: 0 } }
-          : r,
-      ),
-    )
     setVerificationPhase('running')
-    setProgress({ completed: 0, total: failedRows.length })
-
-    let completed = 0
-    let hasError = false
-
-    for (let start = 0; start < failedRows.length; start += CHUNK_SIZE) {
-      const chunk = failedRows.slice(start, start + CHUNK_SIZE)
-      const items: BulkNameLookupItem[] = chunk.map(buildLookupItem)
-
-      try {
-        const response = await BulkNameLookupService.verify(items)
-
-        setVerifiedRows(prev => {
-          const next = [...prev]
-          chunk.forEach((row, idx) => {
-            const rowIdx = next.findIndex(r => r.id === row.id)
-            if (rowIdx === -1) return
-            const result = response.results[idx]
-            const csvName = row.data['name'] ?? ''
-            next[rowIdx] = {
-              ...next[rowIdx],
-              verification: result
-                ? toVerificationResult(result, csvName)
-                : { status: 'lookup-failed', retrievedName: null, similarity: 0, errorMessage: 'No result returned' },
-            }
-          })
-          return next
-        })
-      } catch {
-        hasError = true
-        setVerifiedRows(prev => {
-          const next = [...prev]
-          chunk.forEach(row => {
-            const rowIdx = next.findIndex(r => r.id === row.id)
-            if (rowIdx === -1) return
-            next[rowIdx] = {
-              ...next[rowIdx],
-              verification: {
-                status: 'lookup-failed',
-                retrievedName: null,
-                similarity: 0,
-                errorMessage: 'Network error',
-              },
-            }
-          })
-          return next
-        })
-      }
-
-      completed += chunk.length
-      setProgress({ completed, total: failedRows.length })
-    }
-
-    setVerificationPhase(hasError ? 'error' : 'done')
-  }, [verifiedRows])
+    await submitBatch(failedRows, true)
+  }, [verifiedRows, submitBatch])
 
   // ─── Retry a single row ───────────────────────────────────────────────────
 
   const retryRow = useCallback(async (rowId: string) => {
     const row = verifiedRows.find(r => r.id === rowId)
     if (!row) return
-
-    // Mark as pending
-    setVerifiedRows(prev =>
-      prev.map(r =>
-        r.id === rowId
-          ? { ...r, verification: { status: 'pending', retrievedName: null, similarity: 0 } }
-          : r,
-      ),
-    )
-
-    try {
-      const response = await BulkNameLookupService.verify([buildLookupItem(row)])
-      const result = response.results[0]
-      const csvName = row.data['name'] ?? ''
-
-      setVerifiedRows(prev =>
-        prev.map(r =>
-          r.id === rowId
-            ? {
-                ...r,
-                verification: result
-                  ? toVerificationResult(result, csvName)
-                  : { status: 'lookup-failed', retrievedName: null, similarity: 0, errorMessage: 'No result returned' },
-              }
-            : r,
-        ),
-      )
-    } catch {
-      setVerifiedRows(prev =>
-        prev.map(r =>
-          r.id === rowId
-            ? {
-                ...r,
-                verification: {
-                  status: 'lookup-failed',
-                  retrievedName: null,
-                  similarity: 0,
-                  errorMessage: 'Network error',
-                },
-              }
-            : r,
-        ),
-      )
-    }
-  }, [verifiedRows])
+    setVerificationPhase('running')
+    await submitBatch([row], true)
+  }, [verifiedRows, submitBatch])
 
   // ─── Row management ───────────────────────────────────────────────────────
 
@@ -327,12 +325,18 @@ export function useNameVerification() {
       next.delete(rowId)
       return next
     })
-  }, [])
+    // Also remove from disbursement rows to keep totals in sync
+    onRowRemove?.(rowId)
+  }, [onRowRemove])
 
   const removeSelected = useCallback(() => {
+    // Collect IDs to remove
+    const toRemove = Array.from(selected)
     setVerifiedRows(prev => prev.filter(r => !selected.has(r.id)))
     setSelected(new Set())
-  }, [selected])
+    // Remove from disbursement rows to keep totals in sync
+    toRemove.forEach(id => onRowRemove?.(id))
+  }, [selected, onRowRemove])
 
   // ─── Selection ────────────────────────────────────────────────────────────
 
@@ -356,12 +360,16 @@ export function useNameVerification() {
   // ─── Reset ────────────────────────────────────────────────────────────────
 
   const reset = useCallback(() => {
+    if (pollIntervalRef.current !== null) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null }
+    offEvent('emoney.bulk_name_lookup.result', handleResultEvent)
+    offEvent('emoney.bulk_name_lookup.complete', handleCompleteEvent)
+    activeBatchRef.current = null
     setVerifiedRows([])
     setVerificationPhase('idle')
     setProgress({ completed: 0, total: 0 })
     setFilter('all')
     setSelected(new Set())
-  }, [])
+  }, [handleResultEvent, handleCompleteEvent])
 
   // ─── Derived values ───────────────────────────────────────────────────────
 

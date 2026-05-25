@@ -7,16 +7,9 @@ function escapeCell(value: string): string {
 
 export function generateTemplateCsv(fields: DisbursementField[]): void {
   const headers  = fields.map(f => escapeCell(f.label))
-  const descriptions = fields.map(f => escapeCell(f.description ?? generateFieldDescription(f)))
-  const examples = fields.map(f => {
-    if (f.example)           return escapeCell(f.example)
-    if (f.type === 'phone')  return escapeCell('260971234567')
-    if (f.type === 'number') return escapeCell('500')
-    return escapeCell('example')
-  })
 
-  // CSV rows: headers, descriptions, examples
-  const csvContent = [headers, descriptions, examples].map(row => row.join(',')).join('\r\n')
+  // CSV rows: headers only (no descriptions or examples)
+  const csvContent = headers.join(',')
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
   const url  = URL.createObjectURL(blob)

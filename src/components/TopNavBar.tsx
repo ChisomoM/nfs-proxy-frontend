@@ -1,5 +1,6 @@
 import { useAuth } from '@/lib/context/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import Logo from '@/components/Logo';
 
 export function TopNavBar() {
   const { user } = useAuth();
@@ -35,7 +36,7 @@ export function TopNavBar() {
       <div className="h-full px-8 flex items-center justify-between">
         {/* Logo - Left */}
         <a href="/" className="flex items-center gap-2">
-          Logo
+          <Logo variant="white" className="h-8 w-auto" alt="GeePay" />
         </a>
 
         {/* User Profile - Right */}

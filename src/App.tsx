@@ -13,16 +13,21 @@ import { MerchantDetailPage } from './(admin)/merchants/MerchantDetailPage';
 import { ParticipantsPage } from './(admin)/participants/ParticipantsPage';
 import { AdminTransactions } from './(admin)/transactions/AdminTransactions';
 import { AdminSettings } from './(admin)/settings/AdminSettings';
+import { AdminRoles } from './(admin)/roles/AdminRoles';
 import { MerchantDashboard } from './(merchant)/dashboard/MerchantDashboard';
 import { MerchantTransactions } from './(merchant)/transactions/MerchantTransactions';
 import { MerchantSettlements } from './(merchant)/settlements/MerchantSettlements';
 import { MerchantSettings } from './(merchant)/profile/MerchantSettings';
+import { MerchantRoles } from './(merchant)/roles/MerchantRoles';
+import { MerchantParticipantsPage } from './(merchant)/participants/MerchantParticipantsPage';
 import { SimulatorPage } from './(merchant)/simulator/SimulatorPage';
 import { DisbursementsPage } from './(merchant)/disbursements/DisbursementsPage';
 import { MerchantAuditTrail } from './(merchant)/audit/MerchantAuditTrail';
 import { AuditTrailDetail } from './components/audit/AuditTrailDetail';
 import { ApiDocsLayout } from './layouts/ApiDocsLayout';
 import { AdminAuditTrail } from './(admin)/audit/AdminAuditTrail';
+import MerchantUsersPage from './(merchant)/users/MerchantUsersPage';
+import AdminUsersPage from './(admin)/users/AdminUsersPage';
 import NotFound from './components/NotFound';
 
 
@@ -58,7 +63,9 @@ function App() {
           <Route path="transactions" element={<AdminTransactions />} />
           <Route path="audit" element={<AdminAuditTrail />} />
           <Route path="audit/:id" element={<AuditTrailDetail scope="admin" />} />
+          <Route path="roles" element={<AdminRoles />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="users" element={<AdminUsersPage />} />
         </Route>
 
         {/* Merchant Routes */}
@@ -72,17 +79,19 @@ function App() {
         >
           <Route index element={<Navigate to="/merchant/dashboard" replace />} />
           <Route path="dashboard" element={<MerchantDashboard />} />
-          {/* Legacy routes — redirect to the unified settings page */}
           <Route path="settings/api-keys" element={<Navigate to="/merchant/settings" replace />} />
           <Route path="apps" element={<Navigate to="/merchant/settings" replace />} />
           <Route path="apps/:appId" element={<Navigate to="/merchant/settings" replace />} />
           <Route path="transactions" element={<MerchantTransactions />} />
+          <Route path="participants" element={<MerchantParticipantsPage />} />
           <Route path="settlements" element={<MerchantSettlements />} />
           <Route path="simulator" element={<SimulatorPage />} />
           <Route path="disbursements" element={<DisbursementsPage />} />
           <Route path="audit" element={<MerchantAuditTrail />} />
           <Route path="audit/:id" element={<AuditTrailDetail scope="merchant" />} />
+          <Route path="roles" element={<MerchantRoles />} />
           <Route path="settings" element={<MerchantSettings />} />
+          <Route path="users" element={<MerchantUsersPage />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ShieldCheck, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import Logo from "@/components/Logo";
 
 export const AcceptInvitePage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -63,9 +64,15 @@ export const AcceptInvitePage: React.FC = () => {
             <h1 className="text-3xl font-display font-bold text-gray-900 tracking-tight">
               Setup Your Account
             </h1>
-            <p className="text-sm text-gray-500 font-sans px-4">
-              Welcome to the GeePay Merchant Portal. Create a secure password to activate your account.
-            </p>
+            <div className="flex flex-col items-center gap-2 px-4">
+              <p className="text-sm text-gray-500 font-sans">
+                Welcome to the 
+              </p>
+              <Logo variant="dark" className="h-5 w-auto" />
+              <p className="text-sm text-gray-500 font-sans">
+                Merchant Portal. Create a secure password to activate your account.
+              </p>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -142,7 +149,10 @@ export const AcceptInvitePage: React.FC = () => {
           </form>
 
           <div className="pt-4 text-center border-t border-gray-50">
-            <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em]">GeePay Security Enforced</p>
+            <div className="flex items-center justify-center gap-2">
+              <Logo variant="dark" className="h-3 w-auto opacity-50 grayscale" />
+              <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em]">Security Enforced</p>
+            </div>
           </div>
         </div>
       </motion.div>

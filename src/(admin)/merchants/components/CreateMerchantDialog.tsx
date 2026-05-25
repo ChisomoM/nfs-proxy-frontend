@@ -73,14 +73,24 @@ export const CreateMerchantDialog: React.FC<CreateMerchantDialogProps> = ({
       });
 
       // 2. Accept Invite Directly (Set the admin password)
+      // If we auto-accept the invite here then the invite token will be
+      // consumed server-side. Do not show or allow copying the generated
+      // invite URL in that case to avoid sharing a now-invalid link.
+      let inviteConsumed = false;
       if (result.invite_token) {
-        await post('ACCEPT_INVITE', {
-          invite_token: result.invite_token,
-          password: adminData.password
-        });
+        try {
+          await post('ACCEPT_INVITE', {
+            invite_token: result.invite_token,
+            password: adminData.password
+          });
+          inviteConsumed = true;
+        } catch (err) {
+          // If accept fails, fall back to exposing the invite URL so admin can retry/share
+          inviteConsumed = false;
+        }
       }
 
-      setResponse(result);
+      setResponse({ ...result, invite_consumed: inviteConsumed });
       setStep('success');
       onSuccess();
     } catch (err: any) {
@@ -241,20 +251,26 @@ export const CreateMerchantDialog: React.FC<CreateMerchantDialogProps> = ({
                   description={`${merchantData.business_name} has been registered and the admin account is ready.`}
                 />
 
-                <div className="bg-gray-50 rounded-2xl p-5 text-left space-y-3 border border-gray-100">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Invite URL</span>
-                    <button 
-                      onClick={copyInviteUrl}
-                      className="text-gp-sky hover:text-gp-cobalt p-1 rounded-md hover:bg-white transition-colors"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
+                {!response?.invite_consumed ? (
+                  <div className="bg-gray-50 rounded-2xl p-5 text-left space-y-3 border border-gray-100">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Invite URL</span>
+                      <button 
+                        onClick={copyInviteUrl}
+                        className="text-gp-sky hover:text-gp-cobalt p-1 rounded-md hover:bg-white transition-colors"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="font-mono text-[11px] text-gray-500 break-all bg-white p-3 rounded-lg border border-gray-100">
+                      {response?.invite_url}
+                    </div>
                   </div>
-                  <div className="font-mono text-[11px] text-gray-500 break-all bg-white p-3 rounded-lg border border-gray-100">
-                    {response?.invite_url}
+                ) : (
+                  <div className="bg-green-50 rounded-2xl p-5 text-left space-y-3 border border-green-100">
+                    <p className="text-sm text-green-800">Invite was auto-accepted during provisioning — the link has been consumed and cannot be shared.</p>
                   </div>
-                </div>
+                )}
 
                 {response?.participant_warning && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-left">

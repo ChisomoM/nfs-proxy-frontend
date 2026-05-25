@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import Papa from 'papaparse'
-import type { DisbursementField, DisbursementRow, DisbursementRowData } from '@/types/disbursement'
+import type { DisbursementField, DisbursementRow, DisbursementRowData, ActiveCell, BulkTransferItem, BulkTransferResponse, TransferResults } from '@/types/disbursement'
 import {
   DEFAULT_SCHEMA,
   validateRow,
@@ -9,8 +9,10 @@ import {
   computeSummary,
 } from '@/lib/validations/disbursement'
 import { generateTemplateCsv } from '@/lib/disbursementTemplate'
-import { DisbursementService } from '@/lib/api/services'
+import { normalizePhoneNumber } from '@/lib/utils'
+import { BulkFundTransferService } from '@/lib/api/services'
 
+const BATCH_SIZE = 100
 const PAGE_SIZE = 25
 
 function parseCSV(file: File, schema: DisbursementField[]): Promise<DisbursementRowData[]> {
@@ -49,7 +51,18 @@ function parseCSV(file: File, schema: DisbursementField[]): Promise<Disbursement
           }
         }
 
-        const parsed = dataRows.map(row => {
+        // Filter out description/metadata rows (e.g., rows starting with field descriptions)
+        const actualDataRows = dataRows.filter(row => {
+          // Skip rows where cells look like descriptions (contain ":" or pattern like "Text. Required")
+          return !row.some(cell => cell.includes(':') || cell.includes('Required') || cell.includes('Optional'))
+        })
+
+        if (!actualDataRows.length) {
+          reject(new Error('No valid data rows found in the file'))
+          return
+        }
+
+        const parsed = actualDataRows.map(row => {
           const obj: DisbursementRowData = {}
           row.forEach((cell, idx) => {
             if (keyMap[idx] !== undefined) obj[keyMap[idx]] = cell.trim()
@@ -63,7 +76,34 @@ function parseCSV(file: File, schema: DisbursementField[]): Promise<Disbursement
   })
 }
 
-export interface ActiveCell { rowId: string; fieldKey: string }
+export interface UseDisbursementsReturn {
+  schema: DisbursementField[]
+  schemaLoading: boolean
+  rows: DisbursementRow[]
+  pagedRows: DisbursementRow[]
+  currentPage: number
+  totalPages: number
+  summary: any
+  canSubmit: boolean
+  isSubmitting: boolean
+  showConfirmModal: boolean
+  isDragging: boolean
+  totalAmount: number
+  totalRecipients: number
+  transferResults: TransferResults | null
+  pendingActiveCell: React.MutableRefObject<ActiveCell | null>
+  setCurrentPage: (page: number) => void
+  setIsDragging: (dragging: boolean) => void
+  handleFileParsed: (file: File) => Promise<void>
+  handleRowEdit: (rowId: string, fieldKey: string, newValue: string) => void
+  handleRowDelete: (rowId: string) => void
+  resetRows: () => void
+  handleDownloadTemplate: () => void
+  handleSubmit: () => void
+  handleConfirmSubmit: () => Promise<void>
+  handleCancelSubmit: () => void
+  handleTabPastLastRow: () => void
+}
 
 export function useDisbursements() {
   const [schema, setSchema]               = useState<DisbursementField[]>(DEFAULT_SCHEMA)
@@ -73,12 +113,13 @@ export function useDisbursements() {
   const [isSubmitting, setIsSubmitting]   = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [isDragging, setIsDragging]       = useState(false)
+  const [transferResults, setTransferResults] = useState<TransferResults | null>(null)
   const pendingActiveCell                 = useRef<ActiveCell | null>(null)
 
   useEffect(() => {
-    DisbursementService.getConfig()
-      .then(fields => setSchema(fields))
-      .finally(() => setSchemaLoading(false))
+    // Always use DEFAULT_SCHEMA (fixed required NFS fields) for CSV parsing
+    setSchema(DEFAULT_SCHEMA)
+    setSchemaLoading(false)
   }, [])
 
   const handleFileParsed = async (file: File) => {
@@ -121,17 +162,45 @@ export function useDisbursements() {
     setCurrentPage(1)
   }
 
-  const handleDownloadTemplate = () => generateTemplateCsv(schema)
+  const handleDownloadTemplate = () => generateTemplateCsv(DEFAULT_SCHEMA)
 
   const handleSubmit = () => setShowConfirmModal(true)
 
   const handleConfirmSubmit = async () => {
     setIsSubmitting(true)
     try {
-      const result = await DisbursementService.submit({
-        recipients: rows.map(r => r.data),
-      })
-      toast.success(`Batch ${result.batch_id} submitted — ${result.total_count} recipients queued`)
+      // Map rows to BulkTransferItem[], chunking at 100
+      const items: BulkTransferItem[] = rows.map(r => ({
+        amount: Number(r.data['amount']) || 0,
+        sender: { msisdn: normalizePhoneNumber(r.data['sender_msisdn'] || '') },
+        reciever: {
+          msisdn: normalizePhoneNumber(r.data['receiver_msisdn'] || ''),
+          pan: r.data['receiver_pan'] ? r.data['receiver_pan'] : undefined,
+        },
+        participant_id: r.data['participant_id'] || '',
+        narration: r.data['narration'] ? r.data['narration'] : undefined,
+      }))
+
+      // Submit in batches of 100 sequentially
+      const batches: BulkTransferResponse[] = []
+      for (let i = 0; i < items.length; i += BATCH_SIZE) {
+        const batch = items.slice(i, i + BATCH_SIZE)
+        const response = await BulkFundTransferService.submit(batch)
+        batches.push(response)
+      }
+
+      // Merge all results
+      const totalAmount = rows.reduce((sum, r) => sum + (Number(r.data['amount']) || 0), 0)
+
+      const results = {
+        batches,
+        totalRecipients: rows.length,
+        totalAmount,
+      }
+      console.log('[useDisbursements] setting transferResults:', results)
+      setTransferResults(results)
+
+      toast.success(`${batches.length} batch(es) submitted — ${rows.length} recipients queued`)
       setRows([])
       setCurrentPage(1)
       setShowConfirmModal(false)
@@ -182,6 +251,7 @@ export function useDisbursements() {
     isDragging,
     totalAmount,
     totalRecipients,
+    transferResults,
     pendingActiveCell,
     setCurrentPage,
     setIsDragging,
@@ -194,5 +264,5 @@ export function useDisbursements() {
     handleConfirmSubmit,
     handleCancelSubmit,
     handleTabPastLastRow,
-  }
+  } as const
 }

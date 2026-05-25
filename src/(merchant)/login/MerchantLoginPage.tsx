@@ -3,6 +3,7 @@ import { LoginForm } from '@/components/auth/loginForm';
 import { LayoutDashboard, Wallet, ShieldCheck, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { AuthFeatureItem } from '@/components/shared/AuthFeatureItem';
+import Logo from '@/components/Logo';
 
 export const MerchantLoginPage: React.FC = () => {
   return (
@@ -16,7 +17,7 @@ export const MerchantLoginPage: React.FC = () => {
         <div className="absolute inset-0 opacity-20">
           <motion.div 
             animate={{ 
-              backgroundPosition: ["100% 100%", "0% 0%"],
+              backgroundPosition: ["5% 5%", "0% 0%"],
             }}
             transition={{ 
               duration: 10, 
@@ -47,9 +48,14 @@ export const MerchantLoginPage: React.FC = () => {
               <h2 className="font-display text-4xl xl:text-5xl font-bold leading-[1.1] tracking-tight text-white">
                 Empowering your <span className="text-gp-sky">business growth</span> across Zambia.
               </h2>
-              <p className="font-sans text-lg xl:text-xl text-white/70 leading-relaxed max-w-lg">
-                Access the GeePay Merchant Portal to monitor real-time transactions, manage payment projects, and reconcile settlements with ease.
-              </p>
+              <div className="space-y-4">
+                <p className="font-sans text-lg xl:text-xl text-white/70 leading-relaxed max-w-lg">
+                  Access the Geepay Merchant Portal to monitor real-time transactions, manage payment projects, and reconcile settlements with ease.
+
+                </p>
+                {/* <Logo variant="white" className="h-8 w-auto" /> */}
+                
+              </div>
             </motion.div>
 
             <motion.div 
@@ -80,7 +86,9 @@ export const MerchantLoginPage: React.FC = () => {
         {/* Bottom decorative element */}
         <div className="absolute bottom-12 left-12 flex items-center gap-2 text-white/40">
           <Zap className="h-4 w-4 fill-current" />
-          <span className="font-mono text-xs tracking-widest">POWERED BY GEEPAY NFS PROXY</span>
+          <span className="font-mono text-xs tracking-widest">POWERED BY</span>
+          <Logo variant="white" className="h-4 w-auto opacity-90" alt="GeePay" />
+          <span className="font-mono text-xs tracking-widest">NFS PROXY</span>
         </div>
       </div>
 
@@ -93,17 +101,22 @@ export const MerchantLoginPage: React.FC = () => {
             transition={{ delay: 0.2 }}
             className="flex items-center gap-2"
           >
-            <span className="font-display font-medium text-sm text-gray-400">GeePay for Merchants</span>
+            {/* <Logo variant="dark" className="h-6 w-auto" alt="GeePay" /> */}
           </motion.div>
         </div>
 
         <div className="w-full max-w-md mx-auto">
           <LoginForm accountType="merchant" />
           
-          <div className="mt-8 text-center">
-            <p className="font-sans text-sm text-gray-400">
-              New to GeePay? <button className="text-gp-cobalt font-semibold hover:underline">Apply for a Merchant Account</button>
-            </p>
+          <div className="mt-8 text-center flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2">
+              <p className="font-sans text-sm text-gray-400">
+                New to GeePay?
+              </p>
+              {/* <Logo variant="dark" className="h-4 w-auto" /> */}
+              
+            </div>
+            <button className="text-gp-cobalt font-semibold hover:underline">Apply for a Merchant Account</button>
           </div>
         </div>
       </div>

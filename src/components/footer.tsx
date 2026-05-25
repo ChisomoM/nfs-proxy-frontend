@@ -7,6 +7,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Logo from './Logo';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -76,12 +77,10 @@ export function Footer() {
           {/* Company Info */}
           <div className="lg:col-span-2">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold">
-                Your<span className="text-blue">Company</span>
-              </h2>
+              <Logo variant="white" className="h-10 w-auto mb-4" />
               <p className="text-gray-400 mt-2">
                 Building premium solutions for modern businesses. 
-                Experience the difference with our innovative platform. 
+                Experience the difference with our innovative platform, 
                 infrastructure and reliable financial services.
               </p>
             </div>
@@ -144,7 +143,7 @@ export function Footer() {
         {/* Bottom Footer */}
         <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
           <div className="text-gray-400 text-sm">
-            © {currentYear} ChizoTech. All rights reserved.
+            © {currentYear} GeePay. All rights reserved.
           </div>
           
           <div className="flex items-center space-x-6 text-sm">

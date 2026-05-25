@@ -6,6 +6,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import type { AccountType } from '@/types/auth';
+import Logo from "../Logo";
 
 interface LoginFormProps {
   accountType?: AccountType;
@@ -32,12 +33,24 @@ export const LoginForm: React.FC<LoginFormProps> = ({ accountType = 'admin' }) =
         console.error('Admin login failed:', err);
       }
     } else {
-      // Merchant flow requires OTP
+      // Merchant flow: Try password-only login first
       try {
-        await sendOTP(email, 'login');
-        setShowOtp(true);
-      } catch (err) {
-        console.error('Failed to send OTP:', err);
+        await login(email, password, 'merchant');
+        // If successful, user is redirected by the login function
+      } catch (err: any) {
+        // Check if backend requires OTP
+        const errorMsg = err?.message || '';
+        if (errorMsg.toLowerCase().includes('otp required')) {
+          // Backend requires OTP, send it and show OTP form
+          try {
+            await sendOTP(email, 'login');
+            setShowOtp(true);
+          } catch (otpErr) {
+            console.error('Failed to send OTP:', otpErr);
+          }
+        } else {
+          console.error('Merchant login failed:', err);
+        }
       }
     }
   };
@@ -68,10 +81,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ accountType = 'admin' }) =
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             className="inline-block"
           >
-            <span className="text-3xl font-display font-bold tracking-tight">
+            <Logo variant="dark" className="h-12 w-auto" alt="GeePay" />
+            {/* <span className="text-3xl font-display font-bold tracking-tight">
               <span className="text-gp-cobalt">Gee</span><span className="text-gp-sky">Pay</span>{' '}
               <span className="text-gray-900">NFS</span>
-            </span>
+            </span> */}
           </motion.div>
           <p className="font-sans text-sm text-gray-500">
             {showOtp

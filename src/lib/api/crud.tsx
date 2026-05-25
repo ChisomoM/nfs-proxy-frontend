@@ -137,31 +137,12 @@ export const fetchData = async (
     options.body = JSON.stringify(body);
   }
 
-  // Log request details for debugging CORS issues
-  console.log(`[API] ${method} ${url}`);
-  console.log(`[API] Origin: ${typeof window !== 'undefined' ? window.location.origin : 'N/A'}`);
-  console.log(`[API] Headers:`, {
-    'Content-Type': h.get('Content-Type'),
-    'Authorization': h.get('Authorization') ? '***' : 'none',
-    'Credentials': 'include'
-  });
-
   let res: Response;
   try {
     res = await fetch(url, options);
   } catch (fetchError) {
-    console.error(`[API] Network/CORS Error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
-    console.error(`[API] This usually indicates a CORS preflight failure or network error`);
     throw fetchError;
   }
-
-  // Log response details for debugging CORS issues
-  console.log(`[API] Response Status: ${res.status} ${res.statusText}`);
-  console.log(`[API] CORS Headers:`, {
-    'Access-Control-Allow-Origin': res.headers.get('Access-Control-Allow-Origin'),
-    'Access-Control-Allow-Methods': res.headers.get('Access-Control-Allow-Methods'),
-    'Access-Control-Allow-Headers': res.headers.get('Access-Control-Allow-Headers'),
-  });
 
   if (res.ok) {
     if (res.status === 204) {
@@ -213,7 +194,8 @@ export const fetchData = async (
       sessionStorage.removeItem("accessToken");
       document.cookie =
         "refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-      // UI should catch this and show a toast
+      // Notify the app that the session has expired so AuthProvider can redirect
+      window.dispatchEvent(new CustomEvent('session-expired'));
       throw new Error("SESSION_EXPIRED");
     }
   }
@@ -281,31 +263,12 @@ export const fetchEnvelope = async (
     options.body = JSON.stringify(body);
   }
 
-  // Log request details for debugging CORS issues
-  console.log(`[API-Envelope] ${method} ${url}`);
-  console.log(`[API-Envelope] Origin: ${typeof window !== 'undefined' ? window.location.origin : 'N/A'}`);
-  console.log(`[API-Envelope] Headers:`, {
-    'Content-Type': h.get('Content-Type'),
-    'Authorization': h.get('Authorization') ? '***' : 'none',
-    'Credentials': 'include'
-  });
-
   let res: Response;
   try {
     res = await fetch(url, options);
   } catch (fetchError) {
-    console.error(`[API-Envelope] Network/CORS Error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
-    console.error(`[API-Envelope] This usually indicates a CORS preflight failure or network error`);
     throw fetchError;
   }
-
-  // Log response details for debugging CORS issues
-  console.log(`[API-Envelope] Response Status: ${res.status} ${res.statusText}`);
-  console.log(`[API-Envelope] CORS Headers:`, {
-    'Access-Control-Allow-Origin': res.headers.get('Access-Control-Allow-Origin'),
-    'Access-Control-Allow-Methods': res.headers.get('Access-Control-Allow-Methods'),
-    'Access-Control-Allow-Headers': res.headers.get('Access-Control-Allow-Headers'),
-  });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => null);

@@ -340,7 +340,7 @@ export const SimulatorService = {
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const res = await fetch(
-      `${BACKEND_URL}api/v1/merchants/transactions/${externalRef}`,
+      `${BACKEND_URL}merchants/transactions/${externalRef}`,
       { method: 'GET', headers },
     );
 
@@ -433,10 +433,11 @@ function mapTransactionEnvelope(parsed: any, httpStatus?: number): EmoneyRespons
   const message: string | undefined = parsed?.message;
   const data = parsed?.data ?? {};
   const success = message === 'success' || message === 'reversed';
+  const isPending = message?.toLowerCase().includes('pending');
 
   return {
     success,
-    responseCode: success ? '00' : message === 'pending' ? '00' : '05',
+    responseCode: success ? '00' : isPending ? '00' : '05',
     rrn: data.rrn || undefined,
     stan: data.stan || undefined,
     rawMti: data.mti || undefined,
@@ -445,7 +446,7 @@ function mapTransactionEnvelope(parsed: any, httpStatus?: number): EmoneyRespons
     address: data.address || undefined,
     balance: data.balance !== undefined ? data.balance : undefined,
     httpStatus,
-    status: data.status || (message === 'pending' ? 'pending' : undefined),
+    status: data.status || (isPending ? 'pending' : undefined),
     externalReference: data.external_reference || data.id,
   };
 }
@@ -475,7 +476,7 @@ async function sendCashIn(
     callback_url: payload.callbackUrl ?? '',
   };
   const { parsed, durationMs, status } = await postJSON(
-    `${BACKEND_URL}api/v1/merchants/emoney/cash-in`,
+    `${BACKEND_URL}merchants/emoney/cash-in`,
     body,
     { referenceId: true },
   );
@@ -494,7 +495,7 @@ async function sendCashOut(
     callback_url: payload.callbackUrl ?? '',
   };
   const { parsed, durationMs, status } = await postJSON(
-    `${BACKEND_URL}api/v1/merchants/emoney/cash-out`,
+    `${BACKEND_URL}merchants/emoney/cash-out`,
     body,
     { referenceId: true },
   );
@@ -525,7 +526,7 @@ async function sendFundTransfer(
     narration: payload.narration ?? '',
   };
   const { parsed, durationMs, status } = await postJSON(
-    `${BACKEND_URL}api/v1/merchants/emoney/fund-transfer`,
+    `${BACKEND_URL}merchants/emoney/fund-transfer`,
     body,
     { referenceId: true },
   );
@@ -540,7 +541,7 @@ async function sendReversal(
     reason: payload.reason ?? '',
   };
   const { parsed, durationMs, status } = await postJSON(
-    `${BACKEND_URL}api/v1/merchants/emoney/reversal`,
+    `${BACKEND_URL}merchants/emoney/reversal`,
     body,
   );
   return { response: mapTransactionEnvelope(parsed, status), durationMs };
@@ -555,7 +556,7 @@ async function sendNameLookup(
     country_code: payload.countryCode,
   };
   const { parsed, durationMs, status } = await postJSON(
-    `${BACKEND_URL}api/v1/merchants/emoney/name-lookup`,
+    `${BACKEND_URL}merchants/emoney/name-lookup`,
     body,
     { referenceId: true },
   );
@@ -678,7 +679,8 @@ import type {
   BulkDisbursementPayload,
   BulkDisbursementResponse,
   BulkNameLookupItem,
-  BulkNameLookupResponse,
+  BulkNameLookupBatchResponse,
+  BulkNameLookupStatusResponse,
 } from '@/types/disbursement'
 import { DEFAULT_SCHEMA } from '@/lib/validations/disbursement'
 
@@ -700,8 +702,18 @@ export const DisbursementService = {
 
 // Name Lookup Service (Merchant)
 export const BulkNameLookupService = {
-  async verify(items: BulkNameLookupItem[]): Promise<BulkNameLookupResponse> {
-    return post('BULK_NAME_LOOKUP', { items })
+  async submit(items: BulkNameLookupItem[]): Promise<BulkNameLookupBatchResponse> {
+    return post('BULK_NAME_LOOKUP', items)
+  },
+  async getStatus(batchId: string): Promise<BulkNameLookupStatusResponse> {
+    return retrieve('BULK_NAME_LOOKUP_STATUS', { batchId })
+  },
+}
+
+// Bulk Fund Transfer Service (Merchant)
+export const BulkFundTransferService = {
+  async submit(items: BulkTransferItem[]): Promise<BulkTransferResponse> {
+    return post('BULK_FUND_TRANSFER', items)
   },
 }
 

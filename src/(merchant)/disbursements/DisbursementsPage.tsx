@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
 import { Download, Send, Loader2, ArrowLeft } from 'lucide-react'
 import { PageTransition } from '@/components/shared/PageTransition'
 import { useDisbursements } from '@/hooks/useDisbursements'
 import { useNameVerification } from '@/hooks/useNameVerification'
 import { UploadZone } from './UploadZone'
 import { generateFieldDescription } from '@/lib/validations/disbursement'
-import { DisbursementService } from '@/lib/api/services'
-import type { DisbursementField } from '@/types/disbursement'
+import { DEFAULT_SCHEMA } from '@/lib/validations/disbursement'
 import { ConfirmDisbursementModal } from './ConfirmDisbursementModal'
 import { VerificationProgress } from './VerificationProgress'
 import { VerificationSummaryBar } from './VerificationSummaryBar'
 import { VerificationTable } from './VerificationTable'
+import { TransferResultsTable } from './TransferResultsTable'
 
-type Step = 'upload' | 'verifying' | 'review'
+type Step = 'upload' | 'verifying' | 'review' | 'results'
 
 const PAGE_SIZE = 25
 
@@ -31,20 +32,11 @@ export const DisbursementsPage: React.FC = () => {
   const [verifyPage, setVerifyPage] = useState(1)
 
   const disbursement = useDisbursements()
-  const verification = useNameVerification()
+  const verification = useNameVerification(disbursement.handleRowDelete)
 
-  const [sidebarFields, setSidebarFields] = useState<DisbursementField[]>([])
-  const [sidebarLoading, setSidebarLoading] = useState(true)
-
-  useEffect(() => {
-    let mounted = true
-    setSidebarLoading(true)
-    DisbursementService.getConfig()
-      .then(fields => { if (mounted) setSidebarFields(fields) })
-      .catch(err => console.error('[DisbursementsPage] failed to load sidebar fields', err))
-      .finally(() => { if (mounted) setSidebarLoading(false) })
-    return () => { mounted = false }
-  }, [])
+  // Always use DEFAULT_SCHEMA for sidebar template fields (fixed required NFS fields)
+  const sidebarFields = DEFAULT_SCHEMA
+  const sidebarLoading = false
 
   const {
     schema,
@@ -59,8 +51,17 @@ export const DisbursementsPage: React.FC = () => {
     isSubmitting,
     totalRecipients,
     totalAmount,
+    transferResults,
     rows: disbursementRows,
   } = disbursement
+
+  // Calculate mismatch and lookup-failed counts from verification results
+  const mismatchCount = verification.verifiedRows.filter(r =>
+    r.verification?.status === 'no-match' || r.verification?.status === 'partial-match'
+  ).length
+  const lookupFailedCount = verification.verifiedRows.filter(r =>
+    r.verification?.status === 'lookup-failed'
+  ).length
 
   // Override file parsed to kick off verification flow
   const handleFileParsed = async (file: File) => {
@@ -77,14 +78,26 @@ export const DisbursementsPage: React.FC = () => {
   const [hasStartedVerification, setHasStartedVerification] = useState(false)
 
   React.useEffect(() => {
+    console.log('[disbursements] effect — step:', step, 'rows:', disbursementRows.length, 'hasStarted:', hasStartedVerification)
     if (step === 'verifying' && disbursementRows.length > 0 && !hasStartedVerification) {
+      console.log('[disbursements] calling startVerification with', disbursementRows.length, 'rows')
       setHasStartedVerification(true)
       verification.startVerification(disbursementRows, schema).then(() => {
+        console.log('[disbursements] startVerification resolved — moving to review')
         setStep('review')
         setHasStartedVerification(false)
       })
     }
   }, [step, disbursementRows, hasStartedVerification, verification, schema])
+
+  // Auto-transition to results when transfer completes
+  React.useEffect(() => {
+    console.log('[DisbursementsPage] transferResults changed:', { hasTransferResults: !!transferResults, step })
+    if (transferResults) {
+      console.log('[DisbursementsPage] transitioning to results step')
+      setStep('results')
+    }
+  }, [transferResults])
 
   const handleRetryFailed = async () => {
     setIsRetrying(true)
@@ -159,20 +172,69 @@ export const DisbursementsPage: React.FC = () => {
                   />
                 </div>
 
-                <aside className="lg:col-span-1 bg-white border border-gray-200 rounded-lg p-4">
-                  <h3 className="font-sans font-medium text-gray-900 mb-2">Template Fields</h3>
-                  {sidebarLoading ? (
-                    <p className="text-text-sm text-gray-600">Loading template from server…</p>
-                  ) : (
-                    <div className="space-y-2 text-text-sm">
-                      {(sidebarFields.length ? sidebarFields : schema).map((f) => (
-                        <div key={f.key} className="">
-                          <div className="font-medium text-gray-900">{f.label}{f.required && <span className="text-red-500"> *</span>}</div>
-                          <div className="text-gray-600">{(f.description && f.description.trim()) ? f.description : generateFieldDescription(f)}</div>
-                        </div>
-                      ))}
+                <aside className="lg:col-span-1">
+                  <div className="bg-gradient-to-br from-white to-gray-50/30 border border-gray-200 rounded-xl p-6 shadow-sm sticky top-6">
+                    {/* Header */}
+                    <div className="mb-6">
+                      <h3 className="font-display font-semibold text-lg text-gray-900 mb-1.5">
+                        Template Fields
+                      </h3>
+                      <p className="text-text-sm text-gray-500">
+                        Required fields for your CSV upload
+                      </p>
                     </div>
-                  )}
+
+                    {/* Content */}
+                    {sidebarLoading ? (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <Loader2 size={20} className="animate-spin text-gp-cobalt mb-2" />
+                        <p className="text-text-sm text-gray-500">Loading template…</p>
+                      </div>
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                        className="space-y-4"
+                      >
+                        {sidebarFields.map((f, idx) => (
+                          <motion.div
+                            key={f.key}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{
+                              duration: 0.3,
+                              delay: 0.15 + idx * 0.05,
+                              ease: [0.16, 1, 0.3, 1],
+                            }}
+                            className="group relative pb-4 border-b border-gray-100 last:border-0 last:pb-0"
+                          >
+                            {/* Field label with required indicator */}
+                            <div className="flex items-start gap-2 mb-1.5">
+                              <span className="font-sans font-semibold text-sm text-gray-900 group-hover:text-gp-cobalt transition-colors duration-200">
+                                {f.label}
+                              </span>
+                              {f.required && (
+                                <span className="inline-flex items-center justify-center h-5 px-1.5 bg-red-50 text-red-600 text-xs font-medium rounded">
+                                  Required
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Field description */}
+                            <p className="text-text-sm text-gray-600 leading-relaxed">
+                              {(f.description && f.description.trim())
+                                ? f.description
+                                : generateFieldDescription(f)}
+                            </p>
+
+                            {/* Hover accent line */}
+                            <div className="absolute left-0 top-0 w-0.5 h-full bg-gp-cobalt opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full" />
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </div>
                 </aside>
               </div>
             </motion.div>
@@ -188,7 +250,7 @@ export const DisbursementsPage: React.FC = () => {
               exit="exit"
               transition={stepTransition}
             >
-              <VerificationProgress progress={verification.progress} />
+              <VerificationProgress />
             </motion.div>
           )}
 
@@ -291,6 +353,40 @@ export const DisbursementsPage: React.FC = () => {
             </motion.div>
           )}
 
+          {/* ── Results ──────────────────────────────────────────────────── */}
+          {step === 'results' && transferResults && (
+            <motion.div
+              key="results"
+              variants={stepVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={stepTransition}
+              className="space-y-4"
+            >
+              {/* Results header with back link */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={handleBackToUpload}
+                  className="flex items-center gap-1.5 font-sans text-text-sm text-gray-500 hover:text-gray-900 transition-colors duration-150"
+                >
+                  <ArrowLeft size={14} />
+                  Start new disbursement
+                </button>
+              </div>
+
+              {/* Results table */}
+              <TransferResultsTable
+                transferResults={transferResults}
+                onRefresh={() => {
+                  // For now, just show a toast that status updates will come via WebSocket
+                  // In a real scenario, this would refetch the batch status from the backend
+                  toast.info('Status updates will refresh as transfers process')
+                }}
+              />
+            </motion.div>
+          )}
+
         </AnimatePresence>
       </div>
 
@@ -299,6 +395,8 @@ export const DisbursementsPage: React.FC = () => {
         open={showConfirmModal}
         totalRecipients={totalRecipients}
         totalAmount={totalAmount}
+        mismatchCount={mismatchCount}
+        lookupFailedCount={lookupFailedCount}
         isSubmitting={isSubmitting}
         onConfirm={handleConfirmSubmit}
         onCancel={handleCancelSubmit}

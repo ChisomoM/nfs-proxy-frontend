@@ -19,6 +19,33 @@ export const formatCurrency = (value: number): string =>
     maximumFractionDigits: 2,
   }).format(value);
 
+export function normalizePhoneNumber(raw: string): string {
+  // Remove whitespace and + signs
+  let s = raw.replace(/\s+/g, '').replace(/^\+/, '')
+  
+  // Strip country code 260 if present
+  if (s.startsWith('260') && s.length > 9) {
+    s = s.slice(3)
+  }
+  
+  // Strip leading 0 if present
+  if (s.startsWith('0')) {
+    s = s.slice(1)
+  }
+  
+  // Ensure exactly 10 digits starting with 0
+  s = s.replace(/\D/g, '') // Remove any non-digits
+  if (s.length === 9) {
+    s = '0' + s
+  } else if (s.length === 10 && !s.startsWith('0')) {
+    s = '0' + s.slice(1) // Replace first digit with 0
+  } else if (s.length > 10) {
+    s = s.slice(-10) // Take last 10 digits
+  }
+  
+  return s
+}
+
 export const mergeDocs = (spec: OpenApiSpec, overrides: DocOverride[]): OpenApiSpec => {
   if (!overrides.length) return spec;
 

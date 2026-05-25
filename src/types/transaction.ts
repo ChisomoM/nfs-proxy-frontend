@@ -73,7 +73,7 @@ export interface SimulatedTransaction {
   durationMs: number;
 }
 
-/** Merchant transaction as returned from GET /api/v1/merchants/transactions */
+/** Merchant transaction as returned from GET /merchants/transactions */
 export interface MerchantTransaction {
   ext_id: string;
   app_id: string;

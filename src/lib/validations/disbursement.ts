@@ -1,10 +1,13 @@
 import type { DisbursementField, DisbursementRow, DisbursementRowData } from '@/types/disbursement'
 
 export const DEFAULT_SCHEMA: DisbursementField[] = [
-  { key: 'name',      label: 'Recipient Name',  type: 'string', required: true,  example: 'John Banda'      },
-  { key: 'phone',     label: 'Phone Number',     type: 'phone',  required: true,  example: '260971234567'    },
-  { key: 'amount',    label: 'Amount (ZMW)',     type: 'number', required: true,  example: '500'             },
-  { key: 'reference', label: 'Reference',        type: 'string', required: false, maxLength: 50, example: 'Salary - April 2026' },
+  { key: 'receiver_name',     label: 'Recipient Name',        type: 'string', required: true,  example: 'John Banda'      },
+  { key: 'sender_msisdn',     label: 'Sender Phone',          type: 'phone',  required: true,  example: '260971234567'    },
+  { key: 'receiver_msisdn',   label: 'Recipient Phone',       type: 'phone',  required: true,  example: '260970000123'    },
+  { key: 'participant_id',    label: 'participant_id',        type: 'string', required: true,  example: '000204'          },
+  { key: 'amount',            label: 'Amount (ZMW)',          type: 'number', required: true,  example: '500'             },
+  { key: 'receiver_pan',      label: 'Recipient PAN',         type: 'string', required: false, example: '0002040982268'   },
+  { key: 'narration',         label: 'Narration',             type: 'string', required: false, maxLength: 50, example: 'Salary - April 2026' },
 ]
 
 export function generateFieldDescription(field: DisbursementField): string {

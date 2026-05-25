@@ -65,7 +65,7 @@ const statusFilters: Array<{ label: string; value: TransactionFilter }> = [
 /** Transform backend transaction to display format */
 function transformTransaction(txn: MerchantTransaction): DisplayTransaction {
   const amount = parseFloat(txn.amount.toString());
-  const isCredit = txn.direction?.toLowerCase() === 'credit' || amount > 0;
+  const isCredit = txn.direction?.toLowerCase() === 'in';
   
   return {
     id: txn.ext_id,
@@ -97,9 +97,11 @@ export const MerchantTransactions: React.FC = () => {
         setIsLoading(true);
         setError(null);
         const response = await fetchData('MERCHANT_TRANSACTIONS', 'GET');
-        const transactionsPayload = response?.data || response?.transactions;
         
-        if (!response || !Array.isArray(transactionsPayload)) {
+        // response is already the data array (fetchData extracts it automatically)
+        const transactionsPayload = Array.isArray(response) ? response : null;
+        
+        if (!transactionsPayload) {
           setTransactions([]);
           return;
         }
@@ -205,16 +207,13 @@ export const MerchantTransactions: React.FC = () => {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-4"
       >
         <motion.div variants={itemVariants}>
           <StatCard icon={<ArrowDownLeft />} label="Total Received" value={`ZMW ${stats.totalReceived}`} iconVariant="success" />
         </motion.div>
         <motion.div variants={itemVariants}>
           <StatCard icon={<ArrowUpRight />} label="Total Sent" value={`ZMW ${stats.totalSent}`} iconVariant="danger" />
-        </motion.div>
-        <motion.div variants={itemVariants}>
-          <StatCard icon={<ArrowLeftRight />} label="Net Balance" value={`ZMW ${stats.netBalance}`} iconVariant="cobalt" />
         </motion.div>
       </motion.div>
 
@@ -231,12 +230,12 @@ export const MerchantTransactions: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <button className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 font-sans text-text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
             <Calendar size={15} />
-            Jan 15, 2024
+            Today
           </button>
-          <button className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 font-sans text-text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
+          {/* <button className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 font-sans text-text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
             <SlidersHorizontal size={15} />
             Filters
-          </button>
+          </button> */}
         </div>
       </MerchantToolbar>
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { motion } from "framer-motion";
+import Logo from './Logo';
 import { useNavigate } from "react-router-dom";
 
 export default function Navbar(){
@@ -39,11 +40,7 @@ export default function Navbar(){
                 <div className="flex justify-between items-center h-16">
                     {/* Logo */}
                     <a href="/" className="flex-shrink-0">
-                        <img 
-                            src="/logos/chizotech logo black_.png"
-                            alt="SmartHub Logo"
-                            className="h-12 w-auto object-contain"
-                        />
+                        <Logo variant="dark" className="h-12 w-auto object-contain" alt="GeePay" />
                     </a>
 
                     {/* Desktop Navigation */}

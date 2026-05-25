@@ -125,8 +125,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err: any) {
         const errorMsg = err.message || 'Login failed';
         setError(errorMsg);
-        // Don't toast here if it's just "OTP error", let the UI handle it
-        if (!errorMsg.toLowerCase().includes('otp')) {
+        // Check if this is an OTP requirement (not an error per se, but a flow signal)
+        const requiresOTP = errorMsg.toLowerCase().includes('otp required');
+        if (!requiresOTP && !errorMsg.toLowerCase().includes('otp')) {
           toast.error(errorMsg);
         }
         throw err;
@@ -233,6 +234,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     restoreSessionFromStorage();
   }, [restoreSessionFromStorage]);
+
+  // Listen for session expiry events dispatched by the API layer
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      // Read account type before clearing state
+      const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
+      let accountType: string | undefined;
+      try {
+        if (storedUser) accountType = JSON.parse(storedUser)?.accountType;
+      } catch {}
+      clearStorage();
+      setTokens(null);
+      setUser(null);
+      setError(null);
+      toast.error('Your session has expired. Please log in again.');
+      const redirectPath = accountType === 'admin' ? '/admin/login' : '/merchant/login';
+      navigate(redirectPath);
+    };
+    window.addEventListener('session-expired', handleSessionExpired);
+    return () => window.removeEventListener('session-expired', handleSessionExpired);
+  }, [clearStorage, navigate]);
 
 
 

@@ -14,16 +14,19 @@ import {
   Wallet,
   Settings,
   User,
+  Users,
   ChevronLeft,
   ChevronRight,
   FlaskConical,
   Send,
   ScrollText,
+  Key,
 } from 'lucide-react';
 import DashboardHeader from '@/components/DashboardHeader';
 import { useAuth } from '@/lib/context/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import Logo from '@/components/Logo';
 
 const NAV_ITEMS = [
   { label: 'Dashboard',     to: '/merchant/dashboard',           icon: LayoutDashboard },
@@ -32,6 +35,9 @@ const NAV_ITEMS = [
   { label: 'Disbursements', to: '/merchant/disbursements',       icon: Send            },
   { label: 'Simulator',     to: '/merchant/simulator',           icon: FlaskConical    },
   // { label: 'Audit Trail',   to: '/merchant/audit',               icon: ScrollText      },
+  { label: 'Participants',  to: '/merchant/participants',        icon: Users           },
+  { label: 'Team Members',  to: '/merchant/users',               icon: User            },
+  { label: 'Roles and Permissions', to: '/merchant/roles', icon: Key },
   { label: 'Settings',      to: '/merchant/settings',            icon: Settings        },
 ];
 
@@ -74,21 +80,21 @@ export default function MerchantLayout() {
           >
           {/* Sidebar Header / Logo */}
           <div className="h-15 flex-shrink-0 flex items-center px-6 mt-4">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-gp-cobalt to-gp-sky flex items-center justify-center font-display font-bold text-white shadow-glow-cobalt">
-                GP
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-gp-cobalt to-gp-sky flex items-center justify-center font-display font-bold text-white shadow-glow-cobalt">
+                  NFS
+                </div>
+                {!isCollapsed && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    className="flex items-center"
+                  >
+                    <Logo variant="white" className="h-10 w-auto" alt="NFS" />
+                  </motion.div>
+                )}
               </div>
-              {!isCollapsed && (
-                <motion.span 
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
-                  className="font-display font-bold text-display-xs text-white tracking-tight"
-                >
-                  GeePay<span className="text-gp-sky">.</span>
-                </motion.span>
-              )}
-            </div>
           </div>
 
           {/* Navigation Items */}

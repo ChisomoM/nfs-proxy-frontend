@@ -3,6 +3,7 @@ import { LoginForm } from "../../components/auth/loginForm";
 import { Building2, ShieldCheck, Zap, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { AuthFeatureItem } from "@/components/shared/AuthFeatureItem";
+import Logo from '@/components/Logo';
 
 export const LoginPage: React.FC = () => {
   return (
@@ -16,10 +17,7 @@ export const LoginPage: React.FC = () => {
             transition={{ delay: 0.2 }}
             className="flex items-center gap-2"
           >
-            <div className="h-8 w-8 rounded-lg bg-gp-cobalt flex items-center justify-center">
-              <ShieldCheck className="text-white h-5 w-5" />
-            </div>
-            <span className="font-display font-bold text-xl text-gp-cobalt tracking-tight">GeePay <span className="text-gp-sky">Admin</span></span>
+            <Logo variant="dark" className="h-10 w-auto" alt="GeePay" />
           </motion.div>
         </div>
 
@@ -43,7 +41,7 @@ export const LoginPage: React.FC = () => {
         <div className="absolute inset-0 opacity-20">
           <motion.div 
             animate={{ 
-              backgroundPosition: ["0% 0%", "100% 100%"],
+              backgroundPosition: ["0% 0%", "5% 5%"],
             }}
             transition={{ 
               duration: 20, 

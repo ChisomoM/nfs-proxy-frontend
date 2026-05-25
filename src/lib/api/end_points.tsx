@@ -1,11 +1,11 @@
 export const API: Record<string, string> = {
   // ADMIN END-POINTS
   ADMIN_LOGIN: "auth/admin-login",
-  LIST_MERCHANTS: "api/v1/admin/merchants",
-  CREATE_MERCHANT: "api/v1/admin/merchants",
-  GET_MERCHANT: "api/v1/admin/merchants/:id",
-  UPDATE_MERCHANT: "api/v1/admin/merchants/:id",
-  DELETE_MERCHANT: "api/v1/admin/merchants/:id",
+  LIST_MERCHANTS: "admin/merchants",
+  CREATE_MERCHANT: "admin/merchants",
+  GET_MERCHANT: "admin/merchants/:id",
+  UPDATE_MERCHANT: "admin/merchants/:id",
+  DELETE_MERCHANT: "admin/merchants/:id",
   
   // MERCHANT END-POINTS
   LOGIN: "auth/login",
@@ -16,30 +16,30 @@ export const API: Record<string, string> = {
   VERIFY_OTP: "auth/otp/verify",
 
   // PROJECT END-POINTS
-  LIST_PROJECTS: "api/v1/merchants/apps",
-  CREATE_PROJECT: "api/v1/merchants/apps",
-  GET_PROJECT: "api/v1/merchants/apps/:id",
-  UPDATE_PROJECT: "api/v1/merchants/apps/:id",
-  DELETE_PROJECT: "api/v1/merchants/apps/:id",
+  LIST_PROJECTS: "merchants/apps",
+  CREATE_PROJECT: "merchants/apps",
+  GET_PROJECT: "merchants/apps/:id",
+  UPDATE_PROJECT: "merchants/apps/:id",
+  DELETE_PROJECT: "merchants/apps/:id",
 
   // API KEY END-POINTS (app-scoped, legacy)
-  GENERATE_API_KEY: "api/v1/merchants/apps/:app_id/keys",
-  LIST_API_KEYS: "api/v1/merchants/apps/:app_id/keys",
-  REVOKE_API_KEY: "api/v1/merchants/apps/:app_id/keys/:key_id",
-  REQUEST_OTP_FOR_KEY: "api/v1/merchants/apps/:app_id/keys/:key_id/request-otp",
-  VERIFY_OTP_FOR_KEY: "api/v1/merchants/apps/:app_id/keys/:key_id/verify-otp",
-  TOGGLE_API_KEY: "api/v1/merchants/apps/:app_id/keys/:key_id",
+  GENERATE_API_KEY: "merchants/apps/:app_id/keys",
+  LIST_API_KEYS: "merchants/apps/:app_id/keys",
+  REVOKE_API_KEY: "merchants/apps/:app_id/keys/:key_id",
+  REQUEST_OTP_FOR_KEY: "merchants/apps/:app_id/keys/:key_id/request-otp",
+  VERIFY_OTP_FOR_KEY: "merchants/apps/:app_id/keys/:key_id/verify-otp",
+  TOGGLE_API_KEY: "merchants/apps/:app_id/keys/:key_id",
 
   // MERCHANT-LEVEL KEY END-POINTS (no app_id required)
-  MERCHANT_LIST_KEYS: "api/v1/merchants/keys",
-  MERCHANT_GENERATE_KEY: "api/v1/merchants/keys",
-  MERCHANT_REVOKE_KEY: "api/v1/merchants/keys/:key_id",
-  MERCHANT_TOGGLE_KEY: "api/v1/merchants/keys/:key_id",
-  MERCHANT_REQUEST_OTP: "api/v1/merchants/keys/:key_id/request-otp",
-  MERCHANT_VERIFY_OTP: "api/v1/merchants/keys/:key_id/verify-otp",
+  MERCHANT_LIST_KEYS: "merchants/keys",
+  MERCHANT_GENERATE_KEY: "merchants/keys",
+  MERCHANT_REVOKE_KEY: "merchants/keys/:key_id",
+  MERCHANT_TOGGLE_KEY: "merchants/keys/:key_id",
+  MERCHANT_REQUEST_OTP: "merchants/keys/:key_id/request-otp",
+  MERCHANT_VERIFY_OTP: "merchants/keys/:key_id/verify-otp",
 
   // MERCHANT TRANSACTION END-POINTS
-  MERCHANT_TRANSACTIONS: "api/v1/merchants/transactions",
+  MERCHANT_TRANSACTIONS: "merchants/transactions",
 
   // PARTICIPANT ENDPOINTS (admin write)
   LIST_PARTICIPANTS: "participants",
@@ -50,29 +50,49 @@ export const API: Record<string, string> = {
   
 
   // APP WHITELIST ENDPOINTS (merchant)
-  LIST_AVAILABLE_PARTICIPANTS: "api/v1/merchants/participants",
-  LIST_APP_PARTICIPANTS: "api/v1/merchants/apps/:app_id/participants",
-  ADD_APP_PARTICIPANT: "api/v1/merchants/apps/:app_id/participants",
-  REMOVE_APP_PARTICIPANT: "api/v1/merchants/apps/:app_id/participants/:participant_id",
+  LIST_AVAILABLE_PARTICIPANTS: "merchants/participants",
+  LIST_APP_PARTICIPANTS: "merchants/apps/:app_id/participants",
+  ADD_APP_PARTICIPANT: "merchants/apps/:app_id/participants",
+  REMOVE_APP_PARTICIPANT: "merchants/apps/:app_id/participants/:participant_id",
 
   // SIMULATOR / EMONEY END-POINTS
   SIMULATOR_EMONEY:           "api/v1/emoney",
   SIMULATOR_CASH_IN:          "api/v1/emoney/cash-in",
   SIMULATOR_CASH_OUT:         "api/v1/emoney/cash-out",
   SIMULATOR_FUND_TRANSFER:    "api/v1/emoney/person-to-person",
-  SIMULATOR_NAME_LOOKUP:      "api/v1/emoney/name-lookup",
+  SIMULATOR_NAME_LOOKUP:      "merchants/emoney/name-lookup",
   SIMULATOR_REVERSAL:         "api/v1/emoney/reversal",
 
   // DISBURSEMENT END-POINTS
   DISBURSEMENT_CONFIG: "api/v1/disbursements/config",
   BULK_DISBURSE:       "api/v1/disbursements/bulk",
-  BULK_NAME_LOOKUP:    "api/v1/merchants/emoney/name-lookup/bulk",
+  BULK_NAME_LOOKUP:        "merchants/emoney/name-lookup/bulk",
+  BULK_NAME_LOOKUP_STATUS: "merchants/emoney/name-lookup/bulk/:batchId",
+  BULK_FUND_TRANSFER:  "merchants/emoney/bulk-fund-transfer",
 
   // AUDIT TRAIL END-POINTS
-  MERCHANT_AUDIT_TRAILS: "api/v1/merchants/audit",
-  MERCHANT_AUDIT_TRAIL:  "api/v1/merchants/audit/:id",
-  ADMIN_AUDIT_TRAILS:    "api/v1/admin/audit",
-  ADMIN_AUDIT_TRAIL:     "api/v1/admin/audit/:id",
+  MERCHANT_AUDIT_TRAILS: "merchants/audit",
+  MERCHANT_AUDIT_TRAIL:  "merchants/audit/:id",
+  ADMIN_AUDIT_TRAILS:    "admin/audit",
+  ADMIN_AUDIT_TRAIL:     "admin/audit/:id",
+
+  // USER MANAGEMENT END-POINTS (Merchant-scoped)
+  LIST_MERCHANT_USERS: "merchants/users",
+  GET_MERCHANT_USER: "merchants/users/:user_id",
+  INVITE_MERCHANT_USER: "merchants/users/invite",
+  UPDATE_MERCHANT_USER: "merchants/users/:user_id",
+  DELETE_MERCHANT_USER: "merchants/users/:user_id",
+  RESEND_INVITE_MERCHANT_USER: "merchants/users/:user_id/resend-invite",
+  RESET_PASSWORD_MERCHANT_USER: "merchants/users/:user_id/reset-password",
+
+  // USER MANAGEMENT END-POINTS (Admin - System-wide)
+  LIST_SYSTEM_USERS: "admin/users",
+  GET_SYSTEM_USER: "admin/users/:user_id",
+  INVITE_SYSTEM_USER: "admin/users/invite",
+  UPDATE_SYSTEM_USER: "admin/users/:user_id",
+  DELETE_SYSTEM_USER: "admin/users/:user_id",
+  RESEND_INVITE_SYSTEM_USER: "admin/users/:user_id/resend-invite",
+  RESET_PASSWORD_SYSTEM_USER: "admin/users/:user_id/reset-password",
 };
 
 export const getRoute = (val: string): string => {

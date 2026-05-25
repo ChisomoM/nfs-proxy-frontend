@@ -32,6 +32,8 @@ import {
   RESPONSE_CODE_LABELS,
 } from '@/types/transaction';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/context/useAuth';
+import { joinRoom, leaveRoom, onEvent, offEvent, isSocketConnected, getSocketStatus } from '@/lib/api/socket';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -41,7 +43,7 @@ const TX_TYPES: EmoneyTransactionType[] = [
   'FundTransfer',
   // 'Inquiry',
   'NameLookup',
-  // 'Reversal',
+  'Reversal',
 ];
 
 const HISTORY_KEY = 'gp_simulator_history';
@@ -76,7 +78,7 @@ const FIELDS_BY_TYPE: Record<EmoneyTransactionType, FieldDef[]> = {
   // POST /api/v1/emoney/cash-in
   CashIn: [
     { key: 'participantId', label: 'Participant ID', placeholder: '000204', required: true, hint: 'Receiver participant / acquirer code' },
-    { key: 'msisdn', label: 'MSISDN', placeholder: '979139100', required: true, hint: 'Receiver mobile number (or use PAN below)' },
+    { key: 'msisdn', label: 'MSISDN', placeholder: '0979139100', required: true, hint: 'Receiver mobile number (or use PAN below)' },
     { key: 'amount', label: 'Amount', placeholder: '116.00', type: 'number', required: true, hint: 'Decimal currency amount, e.g. 116.00' },
     { key: 'hash', label: 'Hash', placeholder: 'sha256-hash-here', required: true, hint: 'Validation hash provided by issuer' },
     { key: 'pan', label: 'PAN', placeholder: '0002040977873166', hint: 'Use PAN if MSISDN unavailable' },
@@ -87,7 +89,7 @@ const FIELDS_BY_TYPE: Record<EmoneyTransactionType, FieldDef[]> = {
   // POST /api/v1/emoney/cash-out
   CashOut: [
     { key: 'participantId', label: 'Participant ID', placeholder: '000204', required: true, hint: 'Receiver participant / acquirer code' },
-    { key: 'msisdn', label: 'MSISDN', placeholder: '979139100', required: true, hint: 'Account holder mobile number (or use PAN below)' },
+    { key: 'msisdn', label: 'MSISDN', placeholder: '0979139100', required: true, hint: 'Account holder mobile number (or use PAN below)' },
     { key: 'amount', label: 'Amount', placeholder: '40.00', type: 'number', required: true, hint: 'Decimal currency amount, e.g. 40.00' },
     { key: 'hash', label: 'Hash', placeholder: 'sha256-hash-here', required: true, hint: 'Validation hash provided by issuer' },
     { key: 'terminalId', label: 'Terminal ID', placeholder: 'TERM0001', required: true, hint: 'Required for cash-out' },
@@ -99,8 +101,8 @@ const FIELDS_BY_TYPE: Record<EmoneyTransactionType, FieldDef[]> = {
   FundTransfer: [
     { key: 'routingCode', label: 'Routing Code', placeholder: '000204', required: true, hint: 'Receiver participant ID (routing_code)' },
     { key: 'amount', label: 'Amount', placeholder: '500.00', type: 'number', required: true, hint: 'Decimal currency amount, e.g. 500.00' },
-    { key: 'senderMsisdn', label: 'Sender MSISDN', placeholder: '979139100', required: true, hint: 'Sender mobile number (or use Sender PAN)' },
-    { key: 'receiverMsisdn', label: 'Receiver MSISDN', placeholder: '977873166', required: true, hint: 'Receiver mobile number (or use Receiver PAN)' },
+    { key: 'senderMsisdn', label: 'Sender MSISDN', placeholder: '0979139100', required: true, hint: 'Sender mobile number (or use Sender PAN)' },
+    { key: 'receiverMsisdn', label: 'Receiver MSISDN', placeholder: '0977873166', required: true, hint: 'Receiver mobile number (or use Receiver PAN)' },
     { key: 'senderName', label: 'Sender Name', placeholder: 'John Doe' },
     { key: 'senderPan', label: 'Sender PAN', placeholder: '0002061000631652' },
     { key: 'receiverName', label: 'Receiver Name', placeholder: 'Daisy Mombotwa' },
@@ -117,7 +119,9 @@ const FIELDS_BY_TYPE: Record<EmoneyTransactionType, FieldDef[]> = {
   // POST /api/v1/emoney/name-lookup
   NameLookup: [
     { key: 'participantId', label: 'Participant ID', placeholder: '000204', required: true, hint: 'ZECHL participant / acquirer code' },
-    { key: 'msisdn', label: 'MSISDN', placeholder: '979139100', required: true, hint: 'Mobile number without leading zero or country code' },
+    { key: 'msisdn', label: 'MSISDN', placeholder: '0979139100', required: true, 
+      // hint: 'Mobile number without leading zero or country code' 
+    },
     { key: 'countryCode', label: 'Country Code', placeholder: '260', hint: '260 = Zambia' },
   ],
   // POST /api/v1/emoney/reversal
@@ -221,8 +225,12 @@ function ActivityLogItem({ transaction }: { transaction: SimulatedTransaction })
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function SimulatorPage() {
+  // Auth context
+  const { user } = useAuth();
+  const appId = user?.appId;
+
   // Form state
-  const [txType, setTxType] = useState<EmoneyTransactionType>('CashIn');
+  const [txType, setTxType] = useState<EmoneyTransactionType>('FundTransfer');
   const [formValues, setFormValues] = useState<Partial<EmoneyRequest>>({
     currency: '967',
   });
@@ -251,12 +259,61 @@ export function SimulatorPage() {
     }
   });
 
-  // Load projects (reserved for future project selector enhancement)
-  // useEffect(() => {
-  //   ProjectService.getProjects()
-  //     .then(setProjects)
-  //     .catch(() => setProjects([]));
-  // }, []);
+  // Socket: Listen for real-time transaction updates
+  useEffect(() => {
+    if (!appId) return;
+
+    // Join the app room to receive app-specific events
+    joinRoom(appId);
+    console.log(`📍 Joined simulator room for app: ${appId}`);
+
+    // Handle real-time transaction status updates from backend
+    const handleTransactionUpdate = (data: any) => {
+      console.log('📨 Real-time transaction update:', data);
+      const { externalReference, status, responseCode, success } = data;
+
+      // Update lastResult if it's the current transaction
+      setLastResult((prev) => {
+        if (!prev || prev.response.externalReference !== externalReference) return prev;
+
+        const updatedResponse: EmoneyResponse = {
+          ...prev.response,
+          status,
+          responseCode: responseCode || prev.response.responseCode,
+          success: success !== undefined ? success : prev.response.success,
+        };
+
+        return { ...prev, response: updatedResponse };
+      });
+
+      // Update history entry
+      setHistory((prev) =>
+        prev.map((entry) =>
+          entry.response.externalReference === externalReference
+            ? {
+                ...entry,
+                response: {
+                  ...entry.response,
+                  status,
+                  responseCode: responseCode || entry.response.responseCode,
+                  success: success !== undefined ? success : entry.response.success,
+                },
+              }
+            : entry,
+        ),
+      );
+    };
+
+    // Register listener for transaction updates
+    onEvent('transaction:updated', handleTransactionUpdate);
+
+    // Cleanup
+    return () => {
+      offEvent('transaction:updated');
+      leaveRoom(appId);
+      console.log(`📍 Left simulator room for app: ${appId}`);
+    };
+  }, [appId]);
 
   // Persist history
   useEffect(() => {
@@ -389,6 +446,12 @@ export function SimulatorPage() {
   };
 
   const clearHistory = () => setHistory([]);
+
+  const handleCheckConnection = () => {
+    const status = getSocketStatus();
+    console.log('🔌 Socket Connection Status:', status);
+    alert(`Socket Connected: ${status.connected}\nSocket ID: ${status.socketId || 'N/A'}\nURL: ${status.url || 'N/A'}`);
+  };
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -618,7 +681,7 @@ export function SimulatorPage() {
               </div>
 
               {/* Sticky submit button */}
-              <div className="px-6 py-6 border-t border-gray-100 bg-gray-50">
+              <div className="px-6 py-6 border-t border-gray-100 bg-gray-50 space-y-3">
                 <motion.button
                   onClick={handleSubmit}
                   disabled={isLoading}
@@ -642,6 +705,26 @@ export function SimulatorPage() {
                     </>
                   )}
                 </motion.button>
+
+                {/* Socket connection test button */}
+                {/* <motion.button
+                  onClick={handleCheckConnection}
+                  className={cn(
+                    'w-full h-10 rounded-lg font-sans font-medium text-text-sm flex items-center justify-center gap-2 transition-all',
+                    isSocketConnected()
+                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                      : 'bg-red-100 text-red-700 hover:bg-red-200'
+                  )}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <motion.span
+                    animate={isSocketConnected() ? { scale: [1, 1.2, 1] } : {}}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="w-2 h-2 rounded-full bg-current"
+                  />
+                  <span>{isSocketConnected() ? 'Connected ✓' : 'Disconnected ✗'}</span>
+                </motion.button> */}
               </div>
             </motion.div>
 
@@ -778,17 +861,17 @@ export function SimulatorPage() {
                       {/* Response details */}
                       <div className="space-y-4 pt-2 border-t border-gray-100">
                         {/* Response Code */}
-                        <motion.div
+                        {/* <motion.div
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.1 }}
                         >
                           <p className="font-sans text-text-xs text-gray-600 mb-2">Response Code</p>
                           <ResponseCodeBadge code={lastResult.response.responseCode} />
-                        </motion.div>
+                        </motion.div> */}
 
                         {/* Server message (real endpoints surface pending / failed / reversed) */}
-                        {lastResult.response.message && (
+                        {/* {lastResult.response.message && (
                           <motion.div
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -799,7 +882,7 @@ export function SimulatorPage() {
                               {lastResult.response.message}
                             </span>
                           </motion.div>
-                        )}
+                        )} */}
 
                         {/* RRN */}
                         {lastResult.response.rrn && (
@@ -878,7 +961,7 @@ export function SimulatorPage() {
                         )}
 
                         {/* MTI */}
-                        {lastResult.response.rawMti && (
+                        {/* {lastResult.response.rawMti && (
                           <motion.div
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -889,11 +972,11 @@ export function SimulatorPage() {
                               {lastResult.response.rawMti}
                             </span>
                           </motion.div>
-                        )}
+                        )} */}
                       </div>
 
                       {/* Raw JSON toggle */}
-                      <button
+                      {/* <button
                         onClick={() => setRawExpanded((v) => !v)}
                         className="flex items-center gap-2 font-sans text-text-xs font-medium text-gp-sky hover:text-gp-cobalt transition-colors py-1 -mx-2 px-2"
                       >
@@ -901,7 +984,7 @@ export function SimulatorPage() {
                         {rawExpanded ? 'Hide' : 'View'} Raw JSON
                       </button>
 
-                      {/* Raw JSON Panel */}
+                      {/* Raw JSON Panel 
                       <AnimatePresence>
                         {rawExpanded && (
                           <motion.div
@@ -921,7 +1004,7 @@ export function SimulatorPage() {
                             </div>
                           </motion.div>
                         )}
-                      </AnimatePresence>
+                      </AnimatePresence> */}
                     </motion.div>
                   )}
                 </AnimatePresence>

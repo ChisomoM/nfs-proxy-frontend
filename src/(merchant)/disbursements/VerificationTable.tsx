@@ -71,7 +71,12 @@ export const VerificationTable: React.FC<VerificationTableProps> = ({
   const amountKey = schema.find(f => f.type === 'number' || f.key === 'amount')?.key ?? 'amount'
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Title */}
+      <h3 className="font-display font-semibold text-lg text-gray-900">
+        Name Lookup Results
+      </h3>
+
       <div className="border-gradient bg-white rounded-2xl shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
@@ -107,6 +112,18 @@ export const VerificationTable: React.FC<VerificationTableProps> = ({
               <TableHead>
                 <span className="font-sans font-medium text-text-xs text-gray-500 uppercase tracking-wide">
                   Retrieved Name
+                </span>
+              </TableHead>
+
+              <TableHead>
+                <span className="font-sans font-medium text-text-xs text-gray-500 uppercase tracking-wide">
+                  CSV Participant ID
+                </span>
+              </TableHead>
+
+              <TableHead>
+                <span className="font-sans font-medium text-text-xs text-gray-500 uppercase tracking-wide">
+                  Retrieved Participant ID
                 </span>
               </TableHead>
 
@@ -195,6 +212,35 @@ export const VerificationTable: React.FC<VerificationTableProps> = ({
                             )}
                           >
                             {row.verification.retrievedName ?? '—'}
+                          </motion.span>
+                        </AnimatePresence>
+                      )}
+                    </td>
+
+                    {/* CSV Participant ID */}
+                    <td className="py-2.5 px-4 min-w-[120px]">
+                      <span className="font-mono text-text-sm text-gray-700 tabular-nums">
+                        {row.data['participant_id'] || '—'}
+                      </span>
+                    </td>
+
+                    {/* Retrieved Participant ID */}
+                    <td className="py-2.5 px-4 min-w-[140px]">
+                      {status === 'pending' ? (
+                        <Loader2 size={14} className="animate-spin text-gray-400" />
+                      ) : (
+                        <AnimatePresence mode="wait">
+                          <motion.span
+                            key={row.verification.retrievedParticipantId ?? 'empty'}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.2 }}
+                            className={cn(
+                              'font-mono text-text-sm',
+                              status === 'lookup-failed' ? 'text-gray-400' : row.verification.participantIdMatch ? 'text-emerald-700' : 'text-red-700',
+                            )}
+                          >
+                            {row.verification.retrievedParticipantId ?? '—'}
                           </motion.span>
                         </AnimatePresence>
                       )}

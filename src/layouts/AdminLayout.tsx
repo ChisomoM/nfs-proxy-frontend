@@ -2,11 +2,12 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { SidebarProvider } from '@/components/ui/sidebar';
-import { LogOut, LayoutDashboard, Building2, Users, ArrowLeftRight, Settings, ChevronLeft, ChevronRight, ScrollText } from 'lucide-react';
+import { LogOut, LayoutDashboard, Building2, Users, ArrowLeftRight, Settings, ChevronLeft, ChevronRight, ScrollText, Key } from 'lucide-react';
 import { useAuth } from '@/lib/context/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import DashboardHeader from '@/components/DashboardHeader';
+import Logo from '@/components/Logo';
 
 const NAV_ITEMS = [
   { label: 'Dashboard',    to: '/admin/dashboard',    icon: LayoutDashboard },
@@ -14,6 +15,8 @@ const NAV_ITEMS = [
   { label: 'Participants', to: '/admin/participants', icon: Users },
   { label: 'Transactions', to: '/admin/transactions', icon: ArrowLeftRight },
   // { label: 'Audit Trail',  to: '/admin/audit',        icon: ScrollText },
+  { label: 'Roles and Permissions', to: '/admin/roles', icon: Key },
+  { label: 'System Users', to: '/admin/users',        icon: Users },
   { label: 'Settings',     to: '/admin/settings',     icon: Settings },
 ];
 
@@ -54,21 +57,21 @@ export default function AdminLayout() {
             )}
           >
             <div className="h-15 flex-shrink-0 flex items-center px-6 mt-4">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-gp-cobalt to-gp-sky flex items-center justify-center font-display font-bold text-white shadow-glow-cobalt">
-                  GP
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-gp-cobalt to-gp-sky flex items-center justify-center font-display font-bold text-white shadow-glow-cobalt">
+                    NFS
+                  </div>
+                  {!isCollapsed && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="flex items-center"
+                    >
+                      <Logo variant="white" className="h-10 w-auto" alt="NFS" />
+                    </motion.div>
+                  )}
                 </div>
-                {!isCollapsed && (
-                  <motion.span 
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.25, ease: 'easeOut' }}
-                    className="font-display font-bold text-display-xs text-white tracking-tight"
-                  >
-                    GeePay<span className="text-gp-sky">.</span>
-                  </motion.span>
-                )}
-              </div>
             </div>
 
             <nav className="flex-1 overflow-y-auto px-4 py-8 space-y-1.5 custom-scrollbar">
@@ -164,7 +167,7 @@ export default function AdminLayout() {
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="flex-shrink-0 bg-white px-8 py-5 z-30">
+          {/* <header className="flex-shrink-0 bg-white px-8 py-5 z-30">
             <DashboardHeader
               userName={getUserDisplayName()}
               userTitle="Administrator"
@@ -172,9 +175,11 @@ export default function AdminLayout() {
               contextLine="NFS GeePay · Admin Portal"
               onLogout={logout}
             />
-          </header>
+          </header> */}
           <main className="flex-1 overflow-y-auto p-8 bg-gray-50/50 custom-scrollbar relative">
-            <div className="max-w-[1280px] mx-auto">
+            {/* <div className="max-w-[1280px] mx-auto"> */}
+            <div className=" mx-auto">
+
               <Outlet />
             </div>
           </main>

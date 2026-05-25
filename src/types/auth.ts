@@ -47,6 +47,8 @@ export interface AuthUser extends Partial<LoginUser> {
   // convenience normalized names
   firstName?: string;
   lastName?: string;
+  // canonical app / project id for merchant users
+  appId?: string | null;
   role?: string;
   isVerified?: boolean;
   isActive?: boolean;
@@ -93,3 +95,12 @@ export const STORAGE_KEYS = {
   USER: 'gp_auth_user',
 } as const;
 
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role?: string;
+  status: 'active' | 'inactive' | 'pending' | 'invited';
+  created_at: string;
+  last_login?: string;
+}

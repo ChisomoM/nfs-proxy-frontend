@@ -15,6 +15,8 @@ interface ConfirmDisbursementModalProps {
   open: boolean
   totalRecipients: number
   totalAmount: number
+  mismatchCount: number
+  lookupFailedCount: number
   isSubmitting: boolean
   onConfirm: () => void
   onCancel: () => void
@@ -24,6 +26,8 @@ export const ConfirmDisbursementModal: React.FC<ConfirmDisbursementModalProps> =
   open,
   totalRecipients,
   totalAmount,
+  mismatchCount,
+  lookupFailedCount,
   isSubmitting,
   onConfirm,
   onCancel,
@@ -48,6 +52,28 @@ export const ConfirmDisbursementModal: React.FC<ConfirmDisbursementModalProps> =
             value={String(totalRecipients)}
             mono
           />
+          {mismatchCount > 0 && (
+            <>
+              <div className="h-px bg-gray-100" />
+              <SummaryRow
+                icon={<Users size={15} className="text-amber-500" />}
+                label="Name Mismatches"
+                value={String(mismatchCount)}
+                mono
+              />
+            </>
+          )}
+          {lookupFailedCount > 0 && (
+            <>
+              <div className="h-px bg-gray-100" />
+              <SummaryRow
+                icon={<Users size={15} className="text-red-500" />}
+                label="Lookup Failed"
+                value={String(lookupFailedCount)}
+                mono
+              />
+            </>
+          )}
           <div className="h-px bg-gray-100" />
           <SummaryRow
             icon={<Banknote size={15} className="text-gp-cobalt" />}
@@ -58,7 +84,17 @@ export const ConfirmDisbursementModal: React.FC<ConfirmDisbursementModalProps> =
         </div>
 
         <p className="font-sans text-text-xs text-gray-400">
-          This action cannot be undone. Funds will be disbursed immediately after confirmation.
+          This action cannot be undone. Transfers will be processed immediately after confirmation.
+          {(mismatchCount > 0 || lookupFailedCount > 0) && (
+            <>
+              <br />
+              <span className="block mt-2 text-amber-700">
+                {mismatchCount > 0 && `${mismatchCount} recipient(s) could not be fully verified. `}
+                {lookupFailedCount > 0 && `${lookupFailedCount} lookup(s) failed. `}
+                These will be submitted unverified.
+              </span>
+            </>
+          )}
         </p>
 
         <DialogFooter className="gap-2">

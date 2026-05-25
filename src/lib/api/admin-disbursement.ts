@@ -25,7 +25,7 @@ export const AdminDisbursementService = {
 
     console.log('Fetching template with headers:', { Authorization: headers.Authorization ? 'Bearer ***' : 'missing' })
 
-    const response = await fetch(`${BACKEND_URL}api/v1/admin/disbursements/template`, {
+    const response = await fetch(`${BACKEND_URL}admin/disbursements/template`, {
       method: 'GET',
       headers,
     })
@@ -55,7 +55,7 @@ export const AdminDisbursementService = {
       ...getAuthHeader(),
     }
 
-    const response = await fetch(`${BACKEND_URL}api/v1/admin/disbursements/template`, {
+    const response = await fetch(`${BACKEND_URL}admin/disbursements/template`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ fields }),

@@ -50,7 +50,7 @@ const MOCK_TRANSACTIONS = [
 
 export const AdminDashboard: React.FC = () => {
   return (
-    <PageTransition className="space-y-8">
+    <PageTransition className="space-y-8 max-w-7xl mx-auto">
       <PageHeader
         title="Admin Dashboard"
         subtitle="Platform-wide overview for GeePay NFS."
