@@ -16,11 +16,11 @@ const TABS = [
   { id: 'security', label: 'Security', icon: Lock },
   { id: 'activity', label: 'Activity', icon: Activity },
   { id: 'templates', label: 'Templates', icon: File },
-  { id: 'configurations', label: 'Configurationsc', icon: Cloud },
+  { id: 'configurations', label: 'Configurations', icon: Cloud },
 ] as const
 
 export const AdminSettings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<typeof TABS[number]['id']>('templates')
+  const [activeTab, setActiveTab] = useState<typeof TABS[number]['id']>('account')
 
   let activeTabContent: JSX.Element | null = null
   if (activeTab === 'account') {

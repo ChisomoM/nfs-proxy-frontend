@@ -17,7 +17,6 @@ export const LoginPage: React.FC = () => {
             transition={{ delay: 0.2 }}
             className="flex items-center gap-2"
           >
-            <Logo variant="dark" className="h-10 w-auto" alt="GeePay" />
           </motion.div>
         </div>
 

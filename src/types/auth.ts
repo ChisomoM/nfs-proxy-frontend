@@ -95,12 +95,30 @@ export const STORAGE_KEYS = {
   USER: 'gp_auth_user',
 } as const;
 
+export type UserStatus = 'active' | 'inactive' | 'pending' | 'invited' | 'suspended' | 'locked';
+
 export interface User {
   id: string;
+  ext_id?: string;
   email: string;
+  first_name?: string;
+  last_name?: string;
   name: string;
   role?: string;
-  status: 'active' | 'inactive' | 'pending' | 'invited';
+  role_id?: string;
+  is_staff?: boolean;
+  app_id?: string;
+  status: UserStatus;
   created_at: string;
   last_login?: string;
+  last_login_at?: string;
+}
+
+export interface PasswordResetEvent {
+  id: string;
+  target_user_id: string;
+  performed_by: string;
+  actor_type: string;
+  method: 'self_service' | 'admin_triggered';
+  created_at: string;
 }

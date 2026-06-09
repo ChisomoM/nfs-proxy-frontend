@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, BarChart3, Clock, AlertCircle } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/api/merchantProfileMocks';
-import type { UsageMetrics } from '@/lib/api/merchantProfileAPI.types';
+import type { UsageMetrics } from '@/types/merchantProfileAPI.types';
 
 interface UsageTabProps {
   usage: UsageMetrics;

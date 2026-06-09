@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FlaskConical,
@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   XCircle,
   ChevronDown,
-  ChevronUp,
   RotateCcw,
   Copy,
   Check,
@@ -16,23 +15,29 @@ import {
   Repeat2,
   Search,
   ArrowRight,
+  Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { PageTransition } from '@/components/shared/PageTransition';
-import { SimulatorService } from '@/lib/api/services';
+import { AppParticipantService } from '@/lib/api/services/participants';
+
+import { ProjectService, SimulatorService } from '@/lib/api/services';
 import type {
   EmoneyTransactionType,
   EmoneyRequest,
   EmoneyResponse,
   SimulatedTransaction,
 } from '@/types/transaction';
+import type { Participant } from '@/types/participant';
 import {
   TRANSACTION_TYPE_LABELS,
   RESPONSE_CODE_LABELS,
 } from '@/types/transaction';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/context/useAuth';
+import { toast } from 'sonner';
 import { joinRoom, leaveRoom, onEvent, offEvent, isSocketConnected, getSocketStatus } from '@/lib/api/socket';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -74,10 +79,16 @@ interface FieldDef {
   hint?: string;
 }
 
+const PARTICIPANT_FIELD_KEYS: Array<keyof EmoneyRequest> = ['participantId', 'participantID'];
+
+function isParticipantFieldKey(key: keyof EmoneyRequest): key is 'participantId' | 'participantID' {
+  return PARTICIPANT_FIELD_KEYS.includes(key);
+}
+
 const FIELDS_BY_TYPE: Record<EmoneyTransactionType, FieldDef[]> = {
   // POST /api/v1/emoney/cash-in
   CashIn: [
-    { key: 'participantId', label: 'Participant ID', placeholder: '000204', required: true, hint: 'Receiver participant / acquirer code' },
+    { key: 'participantId', label: 'Participant ID', placeholder: 'Select Participant ID', required: true, hint: 'Receiver participant / acquirer code' },
     { key: 'msisdn', label: 'MSISDN', placeholder: '0979139100', required: true, hint: 'Receiver mobile number (or use PAN below)' },
     { key: 'amount', label: 'Amount', placeholder: '116.00', type: 'number', required: true, hint: 'Decimal currency amount, e.g. 116.00' },
     { key: 'hash', label: 'Hash', placeholder: 'sha256-hash-here', required: true, hint: 'Validation hash provided by issuer' },
@@ -88,7 +99,7 @@ const FIELDS_BY_TYPE: Record<EmoneyTransactionType, FieldDef[]> = {
   ],
   // POST /api/v1/emoney/cash-out
   CashOut: [
-    { key: 'participantId', label: 'Participant ID', placeholder: '000204', required: true, hint: 'Receiver participant / acquirer code' },
+    { key: 'participantId', label: 'Participant ID', placeholder: 'Select Participant ID', required: true, hint: 'Receiver participant / acquirer code' },
     { key: 'msisdn', label: 'MSISDN', placeholder: '0979139100', required: true, hint: 'Account holder mobile number (or use PAN below)' },
     { key: 'amount', label: 'Amount', placeholder: '40.00', type: 'number', required: true, hint: 'Decimal currency amount, e.g. 40.00' },
     { key: 'hash', label: 'Hash', placeholder: 'sha256-hash-here', required: true, hint: 'Validation hash provided by issuer' },
@@ -99,7 +110,7 @@ const FIELDS_BY_TYPE: Record<EmoneyTransactionType, FieldDef[]> = {
   ],
   // POST /api/v1/emoney/person-to-person
   FundTransfer: [
-    { key: 'routingCode', label: 'Routing Code', placeholder: '000204', required: true, hint: 'Receiver participant ID (routing_code)' },
+    { key: 'participantID', label: 'Participant ID', placeholder: 'Select Participant ID', required: true, hint: 'Receiver participant ID' },
     { key: 'amount', label: 'Amount', placeholder: '500.00', type: 'number', required: true, hint: 'Decimal currency amount, e.g. 500.00' },
     { key: 'senderMsisdn', label: 'Sender MSISDN', placeholder: '0979139100', required: true, hint: 'Sender mobile number (or use Sender PAN)' },
     { key: 'receiverMsisdn', label: 'Receiver MSISDN', placeholder: '0977873166', required: true, hint: 'Receiver mobile number (or use Receiver PAN)' },
@@ -118,7 +129,7 @@ const FIELDS_BY_TYPE: Record<EmoneyTransactionType, FieldDef[]> = {
   ],
   // POST /api/v1/emoney/name-lookup
   NameLookup: [
-    { key: 'participantId', label: 'Participant ID', placeholder: '000204', required: true, hint: 'ZECHL participant / acquirer code' },
+    { key: 'participantId', label: 'Participant ID', placeholder: 'Select Participant ID', required: true, hint: 'ZECHL participant / acquirer code' },
     { key: 'msisdn', label: 'MSISDN', placeholder: '0979139100', required: true, 
       // hint: 'Mobile number without leading zero or country code' 
     },
@@ -222,12 +233,252 @@ function ActivityLogItem({ transaction }: { transaction: SimulatedTransaction })
   );
 }
 
+function ParticipantDropdownField({
+  field,
+  value,
+  error,
+  hint,
+  isLoading,
+  whitelistedParticipants,
+  availableParticipants,
+  onSelect,
+  onWhitelist,
+}: {
+  field: FieldDef;
+  value: string;
+  error?: string;
+  hint?: string;
+  isLoading: boolean;
+  whitelistedParticipants: Participant[];
+  availableParticipants: Participant[];
+  onSelect: (participantId: string) => void;
+  onWhitelist: (participant: Participant) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery('');
+    }
+  }, [open]);
+
+  const selectedParticipant =
+    whitelistedParticipants.find((participant) => participant.participant_id === value) ??
+    availableParticipants.find((participant) => participant.participant_id === value) ??
+    null;
+
+  const matchesQuery = (participant: Participant) => {
+    if (!query.trim()) return true;
+    const haystack = `${participant.name} ${participant.participant_id}`.toLowerCase();
+    return haystack.includes(query.toLowerCase());
+  };
+
+  const visibleWhitelisted = whitelistedParticipants.filter(matchesQuery);
+  const visibleAvailable = availableParticipants.filter(matchesQuery);
+
+  const borderClass = error
+    ? 'border-red-300 bg-red-50'
+    : open
+      ? 'border-gp-sky ring-1 ring-gp-sky/30'
+      : 'border-gray-200';
+
+  return (
+    <div ref={containerRef} className="space-y-2">
+      <Label className="font-sans text-text-sm font-medium text-gray-900 flex items-center gap-1.5">
+        {field.label}
+        <span className="text-red-400">*</span>
+      </Label>
+
+      <div className="relative">
+        <button
+          type="button"
+          disabled={isLoading}
+          onClick={() => setOpen((prev) => !prev)}
+          className={cn(
+            'w-full min-h-11 rounded-xl border bg-white px-3 text-left flex items-center justify-between gap-3 transition-all',
+            borderClass,
+            isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:border-gray-300 hover:shadow-sm',
+          )}
+        >
+          <div className="min-w-0 flex-1 py-0.5">
+            {selectedParticipant ? (
+              <div className="flex flex-col gap-0.5">
+                <p className="font-sans text-sm font-semibold text-gray-900 truncate">
+                  {selectedParticipant.name}
+                </p>
+                <p className="font-mono text-xs text-gray-500 truncate">
+                  {selectedParticipant.participant_id}
+                </p>
+              </div>
+            ) : (
+              <p className="font-mono text-text-sm text-gray-400 truncate">
+                {field.placeholder}
+              </p>
+            )}
+          </div>
+          <ChevronDown size={16} className={cn('text-gray-400 transition-transform flex-shrink-0', open && 'rotate-180')} />
+        </button>
+
+        <AnimatePresence>
+          {open && !isLoading && (
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.99 }}
+              transition={{ duration: 0.18 }}
+              className="absolute z-20 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden"
+            >
+              <div className="p-3 border-b border-gray-100">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    autoFocus
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search participants..."
+                    className="h-10 pl-9 rounded-lg border-gray-200 font-sans text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="max-h-80 overflow-y-auto p-2 space-y-3">
+                <div>
+                  <div className="flex items-center justify-between px-2 py-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                      Whitelisted
+                    </p>
+                    <span className="text-xs text-gray-500">{visibleWhitelisted.length}</span>
+                  </div>
+                  <div className="space-y-1">
+                    {visibleWhitelisted.length > 0 ? (
+                      visibleWhitelisted.map((participant) => {
+                        const isSelected = participant.participant_id === value;
+                        return (
+                          <button
+                            key={participant.participant_id}
+                            type="button"
+                            onClick={() => {
+                              onSelect(participant.participant_id);
+                              setOpen(false);
+                            }}
+                            className={cn(
+                              'w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-left transition-colors',
+                              isSelected ? 'bg-emerald-50 border border-emerald-200' : 'hover:bg-gray-50',
+                            )}
+                          >
+                            <div className="min-w-0">
+                              <p className="font-sans text-sm font-medium text-gray-900 truncate">
+                                {participant.name}
+                              </p>
+                              <p className="font-mono text-xs text-gray-500 truncate">
+                                {participant.participant_id}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-xs text-gray-500 uppercase">{participant.type}</span>
+                              {isSelected && <Check size={14} className="text-emerald-600" />}
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <p className="px-3 py-2 text-sm text-gray-500">No whitelisted participants found.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between px-2 py-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      Not whitelisted
+                    </p>
+                    <span className="text-xs text-gray-500">{visibleAvailable.length}</span>
+                  </div>
+                  <div className="space-y-1">
+                    {visibleAvailable.length > 0 ? (
+                      visibleAvailable.map((participant) => (
+                        <div
+                          key={participant.participant_id}
+                          className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-amber-50/40 border border-amber-100"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-sans text-sm font-medium text-gray-900 truncate">
+                              {participant.name}
+                            </p>
+                            <p className="font-mono text-xs text-gray-500 truncate">
+                              {participant.participant_id}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={isLoading}
+                            onClick={async (event) => {
+                              event.stopPropagation();
+                              await onWhitelist(participant);
+                            }}
+                            className="h-8 shrink-0 rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50"
+                          >
+                            {isLoading ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              'Whitelist to continue'
+                            )}
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="px-3 py-2 text-sm text-gray-500">No matching participants found.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {error ? (
+        <motion.p
+          initial={{ opacity: 0, y: -2 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="font-sans text-text-xs text-red-500 flex items-center gap-1"
+        >
+          <XCircle size={12} />
+          {error}
+        </motion.p>
+      ) : hint ? (
+        <p className="font-sans text-text-xs text-gray-500 flex items-center gap-1">
+          <HelpCircle size={12} className="flex-shrink-0" />
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function SimulatorPage() {
   // Auth context
   const { user } = useAuth();
-  const appId = user?.appId;
+  const [appId, setAppId] = useState<string | null>(user?.appId ?? null);
+  const [appResolutionError, setAppResolutionError] = useState<string | null>(null);
 
   // Form state
   const [txType, setTxType] = useState<EmoneyTransactionType>('FundTransfer');
@@ -248,6 +499,45 @@ export function SimulatorPage() {
   const [rawExpanded, setRawExpanded] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [pollAttempts, setPollAttempts] = useState(0);
+  const [participantLists, setParticipantLists] = useState<{
+    whitelisted: Participant[];
+    available: Participant[];
+  }>({
+    whitelisted: [],
+    available: [],
+  });
+  const [isParticipantsLoading, setIsParticipantsLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveAppId = async () => {
+      if (user?.appId) {
+        setAppId(user.appId);
+        setAppResolutionError(null);
+        return;
+      }
+
+      try {
+        const projects = await ProjectService.getProjects();
+        if (cancelled) return;
+
+        const canonicalAppId = projects[0]?.id ?? null;
+        setAppId(canonicalAppId);
+        setAppResolutionError(canonicalAppId ? null : 'No merchant app is available for the simulator.');
+      } catch (err) {
+        if (cancelled) return;
+        console.error('Failed to resolve simulator app id:', err);
+        setAppId(null);
+        setAppResolutionError('Failed to resolve the simulator app.');
+      }
+    };
+
+    resolveAppId();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.appId]);
 
   // History
   const [history, setHistory] = useState<SimulatedTransaction[]>(() => {
@@ -319,6 +609,37 @@ export function SimulatorPage() {
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
   }, [history]);
+
+  const loadParticipantLists = useCallback(async () => {
+    if (!appId) {
+      setParticipantLists({ whitelisted: [], available: [] });
+      return;
+    }
+
+    setIsParticipantsLoading(true);
+    try {
+      const [whitelisted, available] = await Promise.all([
+        AppParticipantService.listAppParticipants(appId),
+        AppParticipantService.listAllParticipants(),
+      ]);
+
+      const whitelistedIds = new Set(whitelisted.map((participant) => participant.participant_id));
+      setParticipantLists({
+        whitelisted,
+        available: available.filter((participant) => !whitelistedIds.has(participant.participant_id)),
+      });
+    } catch (err: any) {
+      console.error('Failed to load participant lists:', err);
+      toast.error('Failed to load participant lists');
+      setParticipantLists({ whitelisted: [], available: [] });
+    } finally {
+      setIsParticipantsLoading(false);
+    }
+  }, [appId]);
+
+  useEffect(() => {
+    loadParticipantLists();
+  }, [loadParticipantLists]);
 
   // Auto-poll pending transactions (202 Accepted)
   useEffect(() => {
@@ -394,6 +715,30 @@ export function SimulatorPage() {
     }));
     if (formErrors[key]) {
       setFormErrors((prev) => ({ ...prev, [key]: undefined }));
+    }
+  };
+
+  const handleParticipantSelect = (fieldKey: 'participantId' | 'participantID', participantId: string) => {
+    handleFieldChange(fieldKey, participantId);
+  };
+
+  const handleWhitelistParticipant = async (fieldKey: 'participantId' | 'participantID', participant: Participant) => {
+    if (!appId) {
+      toast.error('No app is available for whitelisting participants');
+      return;
+    }
+
+    setIsParticipantsLoading(true);
+    try {
+      await AppParticipantService.addParticipant(appId, participant.participant_id);
+      await loadParticipantLists();
+      handleFieldChange(fieldKey, participant.participant_id);
+      toast.success(`${participant.name} whitelisted and selected`);
+    } catch (err: any) {
+      console.error('Failed to whitelist participant:', err);
+      toast.error(err?.message ?? 'Failed to whitelist participant');
+    } finally {
+      setIsParticipantsLoading(false);
     }
   };
 
@@ -497,6 +842,16 @@ export function SimulatorPage() {
             </motion.div>
           </header>
 
+          {appResolutionError && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            >
+              {appResolutionError}
+            </motion.div>
+          )}
+
           {/* TRANSACTION TYPE SELECTOR */}
           <div className="py-4 px-4 bg-white rounded-2xl mb-6">
             <div className="flex items-center gap-4">
@@ -575,42 +930,66 @@ export function SimulatorPage() {
                                 transition={{ duration: 0.35 }}
                                 className="space-y-2"
                               >
-                                <Label className="font-sans text-text-sm font-medium text-gray-900 flex items-center gap-1.5">
-                                  {field.label}
-                                  <span className="text-red-400">*</span>
-                                </Label>
-                                <Input
-                                  type={field.type ?? 'text'}
-                                  value={
-                                    formValues[field.key] !== undefined
-                                      ? String(formValues[field.key])
-                                      : ''
-                                  }
-                                  onChange={(e) => handleFieldChange(field.key, e.target.value)}
-                                  placeholder={field.placeholder}
-                                  className={cn(
-                                    'h-11 bg-white border rounded-lg font-mono text-text-sm transition-colors',
-                                    'hover:border-gray-300 focus-visible:ring-gp-sky focus-visible:border-gp-sky',
-                                    formErrors[field.key]
-                                      ? 'border-red-300 bg-red-50'
-                                      : 'border-gray-200',
-                                  )}
-                                />
-                                {formErrors[field.key] ? (
-                                  <motion.p
-                                    initial={{ opacity: 0, y: -2 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="font-sans text-text-xs text-red-500 flex items-center gap-1"
-                                  >
-                                    <XCircle size={12} />
-                                    {formErrors[field.key]}
-                                  </motion.p>
-                                ) : field.hint ? (
-                                  <p className="font-sans text-text-xs text-gray-500 flex items-center gap-1">
-                                    <HelpCircle size={12} className="flex-shrink-0" />
-                                    {field.hint}
-                                  </p>
-                                ) : null}
+                                {isParticipantFieldKey(field.key) ? (
+                                  <ParticipantDropdownField
+                                    field={field}
+                                    value={
+                                      formValues[field.key] !== undefined
+                                        ? String(formValues[field.key])
+                                        : ''
+                                    }
+                                    error={formErrors[field.key]}
+                                    hint={field.hint}
+                                    isLoading={isParticipantsLoading}
+                                    whitelistedParticipants={participantLists.whitelisted}
+                                    availableParticipants={participantLists.available}
+                                    onSelect={(participantId) =>
+                                      handleParticipantSelect(field.key, participantId)
+                                    }
+                                    onWhitelist={(participant) =>
+                                      handleWhitelistParticipant(field.key, participant)
+                                    }
+                                  />
+                                ) : (
+                                  <>
+                                    <Label className="font-sans text-text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                                      {field.label}
+                                      <span className="text-red-400">*</span>
+                                    </Label>
+                                    <Input
+                                      type={field.type ?? 'text'}
+                                      value={
+                                        formValues[field.key] !== undefined
+                                          ? String(formValues[field.key])
+                                          : ''
+                                      }
+                                      onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                                      placeholder={field.placeholder}
+                                      className={cn(
+                                        'h-11 bg-white border rounded-lg font-mono text-text-sm transition-colors',
+                                        'hover:border-gray-300 focus-visible:ring-gp-sky focus-visible:border-gp-sky',
+                                        formErrors[field.key]
+                                          ? 'border-red-300 bg-red-50'
+                                          : 'border-gray-200',
+                                      )}
+                                    />
+                                    {formErrors[field.key] ? (
+                                      <motion.p
+                                        initial={{ opacity: 0, y: -2 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="font-sans text-text-xs text-red-500 flex items-center gap-1"
+                                      >
+                                        <XCircle size={12} />
+                                        {formErrors[field.key]}
+                                      </motion.p>
+                                    ) : field.hint ? (
+                                      <p className="font-sans text-text-xs text-gray-500 flex items-center gap-1">
+                                        <HelpCircle size={12} className="flex-shrink-0" />
+                                        {field.hint}
+                                      </p>
+                                    ) : null}
+                                  </>
+                                )}
                               </motion.div>
                             ))}
                         </div>
@@ -636,25 +1015,49 @@ export function SimulatorPage() {
                                 transition={{ duration: 0.35 }}
                                 className="space-y-2"
                               >
-                                <Label className="font-sans text-text-sm font-medium text-gray-700">
-                                  {field.label}
-                                </Label>
-                                <Input
-                                  type={field.type ?? 'text'}
-                                  value={
-                                    formValues[field.key] !== undefined
-                                      ? String(formValues[field.key])
-                                      : ''
-                                  }
-                                  onChange={(e) => handleFieldChange(field.key, e.target.value)}
-                                  placeholder={field.placeholder}
-                                  className="h-11 bg-white border border-gray-200 rounded-lg font-mono text-text-sm transition-colors hover:border-gray-300 focus-visible:ring-gp-sky focus-visible:border-gp-sky"
-                                />
-                                {field.hint && (
-                                  <p className="font-sans text-text-xs text-gray-500 flex items-center gap-1">
-                                    <HelpCircle size={12} className="flex-shrink-0" />
-                                    {field.hint}
-                                  </p>
+                                {isParticipantFieldKey(field.key) ? (
+                                  <ParticipantDropdownField
+                                    field={field}
+                                    value={
+                                      formValues[field.key] !== undefined
+                                        ? String(formValues[field.key])
+                                        : ''
+                                    }
+                                    error={formErrors[field.key]}
+                                    hint={field.hint}
+                                    isLoading={isParticipantsLoading}
+                                    whitelistedParticipants={participantLists.whitelisted}
+                                    availableParticipants={participantLists.available}
+                                    onSelect={(participantId) =>
+                                      handleParticipantSelect(field.key, participantId)
+                                    }
+                                    onWhitelist={(participant) =>
+                                      handleWhitelistParticipant(field.key, participant)
+                                    }
+                                  />
+                                ) : (
+                                  <>
+                                    <Label className="font-sans text-text-sm font-medium text-gray-700">
+                                      {field.label}
+                                    </Label>
+                                    <Input
+                                      type={field.type ?? 'text'}
+                                      value={
+                                        formValues[field.key] !== undefined
+                                          ? String(formValues[field.key])
+                                          : ''
+                                      }
+                                      onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                                      placeholder={field.placeholder}
+                                      className="h-11 bg-white border border-gray-200 rounded-lg font-mono text-text-sm transition-colors hover:border-gray-300 focus-visible:ring-gp-sky focus-visible:border-gp-sky"
+                                    />
+                                    {field.hint && (
+                                      <p className="font-sans text-text-xs text-gray-500 flex items-center gap-1">
+                                        <HelpCircle size={12} className="flex-shrink-0" />
+                                        {field.hint}
+                                      </p>
+                                    )}
+                                  </>
                                 )}
                               </motion.div>
                             ))}

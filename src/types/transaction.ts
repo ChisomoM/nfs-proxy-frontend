@@ -33,7 +33,7 @@ export interface EmoneyRequest {
   callbackUrl?: string;
 
   // FundTransfer (real endpoint, person-to-person)
-  routingCode?: string;
+  participantID?: string;
   narration?: string;
   senderMsisdn?: string;
   senderPan?: string;

@@ -8,7 +8,7 @@ import type {
   MerchantUser,
   UsageMetrics,
   LoginHistoryEntry,
-} from './merchantProfileAPI.types';
+} from '../../types/merchantProfileAPI.types';
 
 /**
  * Mock merchant user

@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import type { UpdateProfileRequest, ChangePasswordRequest } from '@/lib/api/merchantProfileAPI.types';
+import type { UpdateProfileRequest, ChangePasswordRequest } from '@/types/merchantProfileAPI.types';
 
 /**
  * Form field errors map

@@ -38,43 +38,6 @@ const mockEnvironments: Environment[] = [
   }
 ];
 
-// Mock Projects Data
-let mockProjects: Project[] = [
-  {
-    id: 'proj-1',
-    name: 'E-commerce Platform',
-    description: 'Online shopping platform with payment integration',
-    environment: mockEnvironments[0], // Sandbox
-    webhook_url: 'https://api.example.com/webhooks',
-    company_id: 'comp-1',
-    is_active: true,
-    created_at: '2024-01-10T08:00:00Z',
-    updated_at: '2024-01-15T10:30:00Z'
-  },
-  {
-    id: 'proj-2',
-    name: 'Mobile App Backend',
-    description: 'Backend services for mobile application',
-    environment: mockEnvironments[1], // Production
-    webhook_url: 'https://mobile-api.example.com/webhooks',
-    company_id: 'comp-1',
-    is_active: true,
-    created_at: '2024-02-01T12:00:00Z',
-    updated_at: '2024-02-05T14:20:00Z'
-  },
-  {
-    id: 'proj-3',
-    name: 'Data Analytics Dashboard',
-    description: 'Real-time analytics and reporting dashboard',
-    environment: mockEnvironments[2], // Staging
-    webhook_url: 'https://analytics.example.com/webhooks',
-    company_id: 'comp-1',
-    is_active: false,
-    created_at: '2024-03-01T09:15:00Z',
-    updated_at: '2024-03-10T16:45:00Z'
-  }
-];
-
 // Project Service
 export const ProjectService = {
   // Get all projects
@@ -506,7 +469,7 @@ async function sendFundTransfer(
   payload: EmoneyRequest,
 ): Promise<{ response: EmoneyResponse; durationMs: number }> {
   // Note: backend struct field is "reciever" (sic) — must match exactly.
-  // participant_id is the receiver's network/institution code (routing_code from the form).
+  // participant_id is the receiver's network/institution code.
   const body = {
     amount: payload.amount,
     sender: pickDetail(
@@ -521,7 +484,7 @@ async function sendFundTransfer(
       payload.countryCode,
       payload.receiverName,
     ),
-    participant_id: payload.routingCode,
+    participant_id: payload.participantID,
     callback_url: payload.callbackUrl ?? '',
     narration: payload.narration ?? '',
   };
@@ -579,69 +542,7 @@ function pickDetail(
   return out;
 }
 
-// Participant Service (Admin)
-export const ParticipantService = {
-  // Get all participants
-  async getParticipants(): Promise<Participant[]> {
-    const response = await list("LIST_PARTICIPANTS");
-    return response.map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      type: p.type,
-      participant_id: p.participant_id,
-      logo: p.logo,
-      is_active: p.is_active,
-      created_at: p.created_at,
-    }));
-  },
 
-  // Get single participant
-  async getParticipant(id: string): Promise<Participant> {
-    const p = await retrieve("GET_PARTICIPANT", { id });
-    return {
-      id: p.id,
-      name: p.name,
-      type: p.type,
-      participant_id: p.participant_id,
-      logo: p.logo,
-      is_active: p.is_active,
-      created_at: p.created_at,
-    };
-  },
-
-  // Create participant
-  async createParticipant(input: CreateParticipantInput): Promise<Participant> {
-    const response = await post("CREATE_PARTICIPANT", input);
-    return {
-      id: response.id,
-      name: response.name,
-      type: response.type,
-      participant_id: response.participant_id,
-      logo: response.logo,
-      is_active: response.is_active,
-      created_at: response.created_at,
-    };
-  },
-
-  // Update participant
-  async updateParticipant(id: string, input: Partial<CreateParticipantInput>): Promise<Participant> {
-    const response = await update("UPDATE_PARTICIPANT", input, { id });
-    return {
-      id: response.id,
-      name: response.name,
-      type: response.type,
-      participant_id: response.participant_id,
-      logo: response.logo,
-      is_active: response.is_active,
-      created_at: response.created_at,
-    };
-  },
-
-  // Archive participant
-  async archiveParticipant(id: string): Promise<void> {
-    await remove("ARCHIVE_PARTICIPANT", { id });
-  },
-};
 
 // Merchant Service (Admin)
 export const MerchantService = {
@@ -717,43 +618,3 @@ export const BulkFundTransferService = {
   },
 }
 
-// App Participant Service (Merchant)
-export const AppParticipantService = {
-  // List all active participants available system-wide
-  async listAllParticipants(): Promise<Participant[]> {
-    const response = await retrieve("LIST_AVAILABLE_PARTICIPANTS");
-    return (response.participants || []).map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      type: p.type,
-      participant_id: p.participant_id,
-      logo: p.logo,
-      is_active: p.is_active,
-      created_at: p.created_at,
-    }));
-  },
-
-  // List participants for an app
-  async listAppParticipants(appId: string): Promise<Participant[]> {
-    const response = await retrieve("LIST_APP_PARTICIPANTS", { app_id: appId });
-    return response.map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      type: p.type,
-      participant_id: p.participant_id,
-      logo: p.logo,
-      is_active: p.is_active,
-      created_at: p.created_at,
-    }));
-  },
-
-  // Add participant to app
-  async addParticipant(appId: string, participantId: string): Promise<void> {
-    await post("ADD_APP_PARTICIPANT", { participant_id: participantId }, { app_id: appId });
-  },
-
-  // Remove participant from app
-  async removeParticipant(appId: string, participantId: string): Promise<void> {
-    await remove("REMOVE_APP_PARTICIPANT", { app_id: appId, participant_id: participantId });
-  },
-};

@@ -6,6 +6,8 @@ export interface AuditTrail {
   actor_id: string;
   actor_email: string;
   action: string;
+  path: string;
+  method: string;
   request?: string;
   response?: string;
   status: number;
@@ -15,7 +17,6 @@ export interface AuditTrail {
   user_agent?: string;
   time_elapsed: number;
   created_at: string;
-  updated_at: string;
 }
 
 export interface AuditTrailsResponse {

@@ -20,11 +20,24 @@ import {
 import { Mail, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface RoleOption {
+  value: string;
+  label: string;
+}
+
+const FALLBACK_ROLES: RoleOption[] = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'member', label: 'Member' },
+  { value: 'viewer', label: 'Viewer' },
+];
+
 interface InviteUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onInvite: (data: { email: string; name: string; role: string }) => Promise<void>;
   isLoading?: boolean;
+  roles?: RoleOption[];
 }
 
 export const InviteUserDialog: React.FC<InviteUserDialogProps> = ({
@@ -32,7 +45,9 @@ export const InviteUserDialog: React.FC<InviteUserDialogProps> = ({
   onOpenChange,
   onInvite,
   isLoading = false,
+  roles,
 }) => {
+  const roleOptions = roles && roles.length > 0 ? roles : FALLBACK_ROLES;
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState('member');
@@ -113,10 +128,11 @@ export const InviteUserDialog: React.FC<InviteUserDialogProps> = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="member">Member</SelectItem>
-                <SelectItem value="viewer">Viewer</SelectItem>
+                {roleOptions.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>
+                    {r.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

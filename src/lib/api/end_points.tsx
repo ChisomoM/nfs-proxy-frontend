@@ -38,6 +38,9 @@ export const API: Record<string, string> = {
   MERCHANT_REQUEST_OTP: "merchants/keys/:key_id/request-otp",
   MERCHANT_VERIFY_OTP: "merchants/keys/:key_id/verify-otp",
 
+  // ADMIN TRANSACTION END-POINTS
+  ADMIN_TRANSACTIONS: "admin/transactions",
+
   // MERCHANT TRANSACTION END-POINTS
   MERCHANT_TRANSACTIONS: "merchants/transactions",
 
@@ -70,6 +73,27 @@ export const API: Record<string, string> = {
   BULK_NAME_LOOKUP_STATUS: "merchants/emoney/name-lookup/bulk/:batchId",
   BULK_FUND_TRANSFER:  "merchants/emoney/bulk-fund-transfer",
 
+  // ADMIN ROLES END-POINTS (global roles, protected by AdminAuthenticator)
+  LIST_ROLES: "admin/roles",
+  CREATE_ROLE: "admin/roles",
+  GET_ROLE: "admin/roles/:id",
+  UPDATE_ROLE: "admin/roles/:id",
+  DELETE_ROLE: "admin/roles/:id",
+  ASSIGN_ROLE_MEMBER: "admin/roles/:id/members",
+  REMOVE_ROLE_MEMBER: "admin/roles/:id/members/:user_id",
+
+  // MERCHANT ROLES END-POINTS (merchant-scoped, protected by MerchantAuthenticator)
+  MERCHANT_LIST_ROLES: "merchants/roles",
+  MERCHANT_CREATE_ROLE: "merchants/roles",
+  MERCHANT_GET_ROLE: "merchants/roles/:id",
+  MERCHANT_UPDATE_ROLE: "merchants/roles/:id",
+  MERCHANT_DELETE_ROLE: "merchants/roles/:id",
+  MERCHANT_ASSIGN_ROLE_MEMBER: "merchants/roles/:id/members",
+  MERCHANT_REMOVE_ROLE_MEMBER: "merchants/roles/:id/members/:user_id",
+
+  // PERMISSIONS END-POINTS
+  GET_PERMISSIONS: "permissions",
+
   // AUDIT TRAIL END-POINTS
   MERCHANT_AUDIT_TRAILS: "merchants/audit",
   MERCHANT_AUDIT_TRAIL:  "merchants/audit/:id",
@@ -80,19 +104,24 @@ export const API: Record<string, string> = {
   LIST_MERCHANT_USERS: "merchants/users",
   GET_MERCHANT_USER: "merchants/users/:user_id",
   INVITE_MERCHANT_USER: "merchants/users/invite",
-  UPDATE_MERCHANT_USER: "merchants/users/:user_id",
+  UPDATE_MERCHANT_USER: "merchants/users/me",
   DELETE_MERCHANT_USER: "merchants/users/:user_id",
   RESEND_INVITE_MERCHANT_USER: "merchants/users/:user_id/resend-invite",
   RESET_PASSWORD_MERCHANT_USER: "merchants/users/:user_id/reset-password",
 
-  // USER MANAGEMENT END-POINTS (Admin - System-wide)
+  // USER MANAGEMENT END-POINTS (Admin - System-wide / GeePay staff)
   LIST_SYSTEM_USERS: "admin/users",
   GET_SYSTEM_USER: "admin/users/:user_id",
   INVITE_SYSTEM_USER: "admin/users/invite",
   UPDATE_SYSTEM_USER: "admin/users/:user_id",
+  SET_STATUS_SYSTEM_USER: "admin/users/:user_id/status",
   DELETE_SYSTEM_USER: "admin/users/:user_id",
   RESEND_INVITE_SYSTEM_USER: "admin/users/:user_id/resend-invite",
   RESET_PASSWORD_SYSTEM_USER: "admin/users/:user_id/reset-password",
+  RESET_HISTORY_SYSTEM_USER: "admin/users/:user_id/reset-history",
+
+  // CROSS-TENANT MERCHANT ADMIN VIEW (Admin portal)
+  LIST_MERCHANT_ADMINS: "admin/merchant-users",
 };
 
 export const getRoute = (val: string): string => {

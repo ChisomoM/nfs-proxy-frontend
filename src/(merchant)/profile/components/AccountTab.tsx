@@ -14,7 +14,7 @@ import { useProfileForm } from '../hooks/useProfileForm';
 import { getInitials } from '@/lib/api/merchantProfileMocks';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import type { MerchantUser } from '@/lib/api/merchantProfileAPI.types';
+import type { MerchantUser } from '@/types/merchantProfileAPI.types';
 
 interface AccountTabProps {
   user: MerchantUser;

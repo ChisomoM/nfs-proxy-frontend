@@ -12,7 +12,7 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Mail, Trash2, RotateCcw, Ban, Check, Users } from 'lucide-react';
+import { MoreHorizontal, Mail, Trash2, RotateCcw, Ban, Check, Users, ExternalLink } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +27,7 @@ import type { User } from '@/types/auth';
 interface UserTableProps {
   users: User[];
   isLoading: boolean;
+  onViewDetails?: (user: User) => void;
   onEdit?: (user: User) => void;
   onResendInvite?: (user: User) => void;
   onResetPassword?: (user: User) => void;
@@ -62,6 +63,7 @@ const getStatusVariant = (status: string) => {
 export const UserTable: React.FC<UserTableProps> = ({
   users,
   isLoading,
+  onViewDetails,
   onEdit,
   onResendInvite,
   onResetPassword,
@@ -159,6 +161,15 @@ export const UserTable: React.FC<UserTableProps> = ({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
+                        {onViewDetails && (
+                          <DropdownMenuItem
+                            onClick={() => onViewDetails(user)}
+                            className="cursor-pointer flex items-center gap-2"
+                          >
+                            <ExternalLink size={14} />
+                            <span className="text-xs">View Details</span>
+                          </DropdownMenuItem>
+                        )}
                         {onEdit && (
                           <>
                             <DropdownMenuItem

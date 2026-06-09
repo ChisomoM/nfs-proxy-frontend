@@ -20,7 +20,7 @@ import {
   Archive
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ParticipantService } from '@/lib/api/services';
+import { ParticipantService } from '@/lib/api/services/participants';
 import { CreateParticipantDialog } from './components/CreateParticipantDialog';
 import { EditParticipantDialog } from './components/EditParticipantDialog';
 import { Button } from '@/components/ui/button';

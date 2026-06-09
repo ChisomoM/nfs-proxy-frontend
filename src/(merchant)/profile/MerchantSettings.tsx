@@ -14,7 +14,7 @@ import { ProjectService } from '@/lib/api/services';
 import AccountTab from './components/AccountTab';
 import SecurityTab from './components/SecurityTab';
 import UsageTab from './components/UsageTab';
-import ActivityTab from './components/ActivityTab';
+import { MerchantAuditTrail } from '../audit/MerchantAuditTrail';
 import { ApiKeyManager } from './api-keys/ApiKeyManager';
 import { AppParticipantManager } from './api-keys/AppParticipantManager';
 
@@ -143,7 +143,7 @@ export const MerchantSettings: React.FC = () => {
           <SecurityTab user={profileData.user} lastLogin={profileData.activity.recentLogins[0]} />
         )}
         {activeTab === 'usage' && <UsageTab usage={profileData.usage} />}
-        {activeTab === 'activity' && <ActivityTab />}
+        {activeTab === 'activity' && <MerchantAuditTrail />}
         {(activeTab === 'api-keys' || activeTab === 'participants') && (
           appSetupError ? (
             <div className="flex items-center justify-center gap-2 py-16 text-danger-fg font-sans text-text-sm">

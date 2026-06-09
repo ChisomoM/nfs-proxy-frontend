@@ -111,17 +111,18 @@ export const AuditTrailDetail: React.FC<AuditTrailDetailProps> = ({ scope }) => 
   return (
     <PageTransition className="space-y-8">
       <PageHeader
+        hasBack
         title="Audit Event Details"
         subtitle="Full captured context for a single audit event."
-        action={
-          <Link
-            to={listPath}
-            className="h-10 rounded-xl border border-gray-200 bg-white px-4 font-sans text-text-sm font-semibold text-gray-700 inline-flex items-center gap-2 shadow-sm hover:bg-gray-50"
-          >
-            <ArrowLeft size={15} />
-            Back
-          </Link>
-        }
+        // action={
+        //   <Link
+        //     to={listPath}
+        //     className="h-10 rounded-xl border border-gray-200 bg-white px-4 font-sans text-text-sm font-semibold text-gray-700 inline-flex items-center gap-2 shadow-sm hover:bg-gray-50"
+        //   >
+        //     <ArrowLeft size={15} />
+        //     Back
+        //   </Link>
+        // }
       />
 
       {loading ? (

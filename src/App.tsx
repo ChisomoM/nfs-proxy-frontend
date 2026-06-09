@@ -28,6 +28,7 @@ import { ApiDocsLayout } from './layouts/ApiDocsLayout';
 import { AdminAuditTrail } from './(admin)/audit/AdminAuditTrail';
 import MerchantUsersPage from './(merchant)/users/MerchantUsersPage';
 import AdminUsersPage from './(admin)/users/AdminUsersPage';
+import UserDetailPage from './(admin)/users/UserDetailPage';
 import NotFound from './components/NotFound';
 
 
@@ -66,6 +67,7 @@ function App() {
           <Route path="roles" element={<AdminRoles />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="users" element={<AdminUsersPage />} />
+          <Route path="users/:userId" element={<UserDetailPage />} />
         </Route>
 
         {/* Merchant Routes */}

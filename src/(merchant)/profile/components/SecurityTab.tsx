@@ -30,7 +30,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { usePasswordForm, use2FAForm } from '../hooks/useProfileForm';
 import { getRelativeTime, formatDate } from '@/lib/api/merchantProfileMocks';
-import type { MerchantUser, LoginHistoryEntry } from '@/lib/api/merchantProfileAPI.types';
+import type { MerchantUser, LoginHistoryEntry } from '@/types/merchantProfileAPI.types';
 
 interface SecurityTabProps {
   user: MerchantUser;

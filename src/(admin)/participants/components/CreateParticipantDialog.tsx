@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Loader2, CheckCircle2 } from 'lucide-react';
-import { ParticipantService } from '@/lib/api/services';
+import { ParticipantService } from '@/lib/api/services/participants';
 import { toast } from 'sonner';
 import type { CreateParticipantInput } from '@/types/participant';
 

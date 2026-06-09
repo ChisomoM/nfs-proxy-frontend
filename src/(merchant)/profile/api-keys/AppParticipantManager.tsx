@@ -14,7 +14,7 @@ import {
   Loader2,
   CheckCircle2
 } from 'lucide-react';
-import { AppParticipantService } from '@/lib/api/services';
+import { AppParticipantService } from '@/lib/api/services/participants';
 import type { Participant } from '@/types/participant';
 
 interface AppParticipantManagerProps {
