@@ -10,8 +10,7 @@ import { toast } from 'sonner';
 
 import { UserTable } from '@/components/user-management/UserTable';
 import { InviteUserDialog } from '@/components/user-management/InviteUserDialog';
-import { fetchData } from '@/lib/api/crud';
-import { getRoute, pipe } from '@/lib/api/end_points';
+import { MerchantUsersService } from '@/lib/api/services';
 import type { User } from '@/types/auth';
 import { MOCK_TEAM_MEMBERS } from './mockData';
 
@@ -37,11 +36,9 @@ export const MerchantUsersPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetchData(getRoute('LIST_MERCHANT_USERS'), 'GET');
-      if (response && Array.isArray(response.users)) {
-        setUsers(response.users);
-      } else if (Array.isArray(response)) {
-        setUsers(response);
+      const list = await MerchantUsersService.listUsers();
+      if (list.length > 0) {
+        setUsers(list);
       } else {
         setUsers(MOCK_TEAM_MEMBERS);
       }
@@ -65,15 +62,7 @@ export const MerchantUsersPage: React.FC = () => {
   const handleInviteUser = async (data: { email: string; name: string; role: string }) => {
     setIsInviting(true);
     try {
-      const response = await fetchData(
-        getRoute('INVITE_MERCHANT_USER'),
-        'POST',
-        {
-          email: data.email,
-          name: data.name,
-          role: data.role,
-        }
-      );
+      await MerchantUsersService.invite(data);
       toast.success('Invitation sent successfully');
       fetchUsers();
     } catch (err: any) {
@@ -86,10 +75,7 @@ export const MerchantUsersPage: React.FC = () => {
 
   const handleResendInvite = async (user: User) => {
     try {
-      await fetchData(
-        pipe(getRoute('RESEND_INVITE_MERCHANT_USER'), { user_id: user.id }),
-        'POST'
-      );
+      await MerchantUsersService.resendInvite(user.id);
       toast.success('Invitation resent successfully');
     } catch (err: any) {
       console.error(err);
@@ -99,10 +85,7 @@ export const MerchantUsersPage: React.FC = () => {
 
   const handleResetPassword = async (user: User) => {
     try {
-      await fetchData(
-        pipe(getRoute('RESET_PASSWORD_MERCHANT_USER'), { user_id: user.id }),
-        'POST'
-      );
+      await MerchantUsersService.resetPassword(user.id);
       toast.success('Password reset link sent');
     } catch (err: any) {
       console.error(err);
@@ -113,11 +96,7 @@ export const MerchantUsersPage: React.FC = () => {
   const handleDeactivate = async (user: User) => {
     try {
       const newStatus = user.status === 'active' ? 'inactive' : 'active';
-      await fetchData(
-        pipe(getRoute('UPDATE_MERCHANT_USER'), { user_id: user.id }),
-        'PATCH',
-        { status: newStatus }
-      );
+      await MerchantUsersService.updateStatus(user.id, newStatus);
       toast.success(`User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
       fetchUsers();
     } catch (err: any) {
@@ -131,10 +110,7 @@ export const MerchantUsersPage: React.FC = () => {
       return;
     }
     try {
-      await fetchData(
-        pipe(getRoute('DELETE_MERCHANT_USER'), { user_id: user.id }),
-        'DELETE'
-      );
+      await MerchantUsersService.delete(user.id);
       toast.success('User deleted successfully');
       fetchUsers();
     } catch (err: any) {

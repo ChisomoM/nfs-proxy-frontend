@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/table';
 import { useTableSort } from '@/hooks/useTableSort';
 import { cn } from '@/lib/utils';
-import { fetchData } from '@/lib/api/crud';
+import { TransactionService } from '@/lib/api/services';
 import type { MerchantTransaction } from '@/types/transaction';
 
 const containerVariants = {
@@ -96,12 +96,9 @@ export const MerchantTransactions: React.FC = () => {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetchData('MERCHANT_TRANSACTIONS', 'GET');
+        const transactionsPayload = await TransactionService.listMerchant();
         
-        // response is already the data array (fetchData extracts it automatically)
-        const transactionsPayload = Array.isArray(response) ? response : null;
-        
-        if (!transactionsPayload) {
+        if (!transactionsPayload.length) {
           setTransactions([]);
           return;
         }

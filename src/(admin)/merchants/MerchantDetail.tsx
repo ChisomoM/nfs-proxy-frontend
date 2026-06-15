@@ -4,8 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Building2, Loader2, ScrollText } from 'lucide-react';
-import { MerchantService } from '@/lib/api/services';
-import { fetchData } from '@/lib/api/crud';
+import { MerchantService, AuditService } from '@/lib/api/services';
 import { cn } from '@/lib/utils';
 import type { Merchant } from '@/types/merchant';
 import type { AuditTrail } from '@/types/audit';
@@ -62,8 +61,8 @@ export const MerchantDetail: React.FC<MerchantDetailProps> = ({
     if (!merchantId) return;
     setAuditLoading(true);
     try {
-      const data = await fetchData('ADMIN_AUDIT_TRAILS', 'GET', {}, null, { merchant_id: merchantId });
-      setAuditTrails(Array.isArray(data) ? data : []);
+      const data = await AuditService.listAdminTrailsForMerchant(merchantId);
+      setAuditTrails(data);
     } catch {
       // silently fail — audit is non-critical
     } finally {

@@ -14,8 +14,7 @@ import {
   TableHeader, TableHeaderRow, TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { fetchData } from '@/lib/api/crud';
-import { getRoute, pipe } from '@/lib/api/end_points';
+import { SystemUsersService } from '@/lib/api/services';
 import type { User, PasswordResetEvent, UserStatus } from '@/types/auth';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -51,8 +50,7 @@ export const UserDetailPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetchData('GET_SYSTEM_USER', 'GET', { user_id: userId });
-      const data = res?.data ?? res;
+      const data = await SystemUsersService.getUser(userId);
       setUser(data);
     } catch {
       setError('Failed to load user');
@@ -66,9 +64,8 @@ export const UserDetailPage: React.FC = () => {
     if (!userId) return;
     setHistoryLoading(true);
     try {
-      const res = await fetchData('RESET_HISTORY_SYSTEM_USER', 'GET', { user_id: userId });
-      const data = res?.data ?? res;
-      setResetHistory(Array.isArray(data) ? data : []);
+      const data = await SystemUsersService.getResetHistory(userId);
+      setResetHistory(data);
     } catch {
       setResetHistory([]);
     } finally {
@@ -85,7 +82,7 @@ export const UserDetailPage: React.FC = () => {
     if (!userId) return;
     setIsSaving(true);
     try {
-      await fetchData('SET_STATUS_SYSTEM_USER', 'PATCH', { user_id: userId }, { status });
+      await SystemUsersService.setStatus(userId, status);
       toast.success(`User ${status}`);
       fetchUser();
     } catch (err: any) {
@@ -98,7 +95,7 @@ export const UserDetailPage: React.FC = () => {
   const handleResetPassword = async () => {
     if (!userId) return;
     try {
-      await fetchData('RESET_PASSWORD_SYSTEM_USER', 'POST', { user_id: userId });
+      await SystemUsersService.resetPassword(userId);
       toast.success('Password reset email sent');
       if (activeTab === 'history') fetchResetHistory();
     } catch {
@@ -109,7 +106,7 @@ export const UserDetailPage: React.FC = () => {
   const handleResendInvite = async () => {
     if (!userId) return;
     try {
-      await fetchData('RESEND_INVITE_SYSTEM_USER', 'POST', { user_id: userId });
+      await SystemUsersService.resendInvite(userId);
       toast.success('Invite resent');
     } catch {
       toast.error('Failed to resend invite');

@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Building2, Mail, User, ShieldCheck, Loader2, CheckCircle2, Copy, ExternalLink } from 'lucide-react';
-import { post } from '@/lib/api/crud';
+import { MerchantService } from '@/lib/api/services';
 import { toast } from 'sonner';
 
 interface CreateMerchantDialogProps {
@@ -48,9 +48,15 @@ export const CreateMerchantDialog: React.FC<CreateMerchantDialogProps> = ({
     setResponse(null);
   };
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   const handleNext = () => {
     if (!merchantData.business_name || !merchantData.participant_id) {
       toast.error('Please fill in all merchant details');
+      return;
+    }
+    if (EMAIL_RE.test(merchantData.participant_id)) {
+      toast.error('Participant ID must be an institution code (e.g. 0002), not an email address.');
       return;
     }
     setStep('admin');
@@ -65,7 +71,7 @@ export const CreateMerchantDialog: React.FC<CreateMerchantDialogProps> = ({
     setIsSubmitting(true);
     try {
       // 1. Create Merchant
-      const result = await post('CREATE_MERCHANT', {
+      const result = await MerchantService.createMerchant({
         business_name: merchantData.business_name,
         participant_id: merchantData.participant_id,
         contact_details: { email: adminData.email },
@@ -79,10 +85,7 @@ export const CreateMerchantDialog: React.FC<CreateMerchantDialogProps> = ({
       let inviteConsumed = false;
       if (result.invite_token) {
         try {
-          await post('ACCEPT_INVITE', {
-            invite_token: result.invite_token,
-            password: adminData.password
-          });
+          await MerchantService.acceptInvite(result.invite_token, adminData.password);
           inviteConsumed = true;
         } catch (err) {
           // If accept fails, fall back to exposing the invite URL so admin can retry/share
@@ -143,7 +146,8 @@ export const CreateMerchantDialog: React.FC<CreateMerchantDialogProps> = ({
                   <FormInput 
                     label="Participant ID" 
                     icon={<ShieldCheck className="w-4 h-4" />}
-                    placeholder="e.g. ZNFS-MERCH-001"
+                    placeholder="e.g. 0002"
+                    hint="Institution code assigned by ZECHL/NFS"
                     value={merchantData.participant_id}
                     onChange={(v) => setMerchantData({...merchantData, participant_id: v})}
                   />
@@ -301,7 +305,7 @@ const Header = ({ title, description }: { title: string, description: string }) 
   </div>
 );
 
-const FormInput = ({ label, value, onChange, placeholder, icon, type = "text" }: any) => (
+const FormInput = ({ label, value, onChange, placeholder, icon, type = "text", hint }: any) => (
   <div className="space-y-2">
     <Label className="font-sans text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">
       {label}
@@ -318,5 +322,6 @@ const FormInput = ({ label, value, onChange, placeholder, icon, type = "text" }:
         className="h-12 pl-11 pr-4 rounded-xl border-gray-200 focus:ring-2 focus:ring-gp-sky/20 focus:border-gp-sky transition-all duration-200"
       />
     </div>
+    {hint && <p className="font-sans text-xs text-gray-400 ml-1">{hint}</p>}
   </div>
 );

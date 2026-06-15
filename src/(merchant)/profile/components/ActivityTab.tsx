@@ -15,7 +15,7 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { Badge } from '@/components/ui/badge';
 import { LogIn, Activity, Clock, Search } from 'lucide-react';
-import { fetchData } from '@/lib/api/crud';
+import { AuditService } from '@/lib/api/services';
 import type { AuditTrail } from '@/types/audit';
 
 const formatDate = (iso: string) =>
@@ -93,8 +93,8 @@ const ActivityTab: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetchData('MERCHANT_AUDIT_TRAILS', 'GET');
-      setAuditTrails(response || []);
+      const response = await AuditService.listMerchantTrailsSimple();
+      setAuditTrails(response);
     } catch (err) {
       setError('Failed to load activity data. Please try again.');
       console.error('Error fetching audit trails:', err);

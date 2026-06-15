@@ -5,7 +5,7 @@ import { PageTransition } from '@/components/shared/PageTransition';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { SectionCard } from '@/components/shared/SectionCard';
 import { StatusBadge } from '@/components/shared/StatusBadge';
-import { fetchData } from '@/lib/api/crud';
+import { AuditService } from '@/lib/api/services';
 import { cn } from '@/lib/utils';
 import type { AuditTrail } from '@/types/audit';
 import type { StatusType } from '@/components/shared/StatusBadge';
@@ -85,7 +85,6 @@ export const AuditTrailDetail: React.FC<AuditTrailDetailProps> = ({ scope }) => 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const listPath = scope === 'admin' ? '/admin/audit' : '/merchant/audit';
-  const endpoint = scope === 'admin' ? 'ADMIN_AUDIT_TRAIL' : 'MERCHANT_AUDIT_TRAIL';
 
   useEffect(() => {
     const loadTrail = async () => {
@@ -93,7 +92,9 @@ export const AuditTrailDetail: React.FC<AuditTrailDetailProps> = ({ scope }) => 
       try {
         setLoading(true);
         setError(null);
-        const response = await fetchData(endpoint, 'GET', { id });
+        const response = scope === 'admin'
+          ? await AuditService.getAdminTrail(id)
+          : await AuditService.getMerchantTrail(id);
         setTrail(response);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load audit trail');
@@ -103,7 +104,7 @@ export const AuditTrailDetail: React.FC<AuditTrailDetailProps> = ({ scope }) => 
     };
 
     loadTrail();
-  }, [endpoint, id]);
+  }, [scope, id]);
 
   const requestBody = useMemo(() => prettyBody(trail?.request), [trail?.request]);
   const responseBody = useMemo(() => prettyBody(trail?.response), [trail?.response]);

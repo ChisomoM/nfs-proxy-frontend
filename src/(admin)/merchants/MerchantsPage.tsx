@@ -21,7 +21,7 @@ import {
   SearchX
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { list } from '@/lib/api/crud';
+import { MerchantService } from '@/lib/api/services';
 import { CreateMerchantDialog } from './components/CreateMerchantDialog';
 import { Input } from '@/components/ui/input';
 import { StatCard } from '@/components/shared/StatCard';
@@ -49,8 +49,8 @@ export const MerchantsPage: React.FC = () => {
   const fetchMerchants = async () => {
     setIsLoading(true);
     try {
-      const data = await list('LIST_MERCHANTS');
-      setMerchants(data.merchants || []);
+      const merchants = await MerchantService.listMerchants();
+      setMerchants(merchants);
     } catch (err: any) {
       toast.error('Failed to load merchants');
       console.error(err);

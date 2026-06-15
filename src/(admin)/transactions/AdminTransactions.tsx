@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/table';
 import { useTableSort } from '@/hooks/useTableSort';
 import { cn } from '@/lib/utils';
-import { fetchData } from '@/lib/api/crud';
+import { TransactionService } from '@/lib/api/services';
 
 const containerVariants = {
   hidden: {},
@@ -95,8 +95,7 @@ export const AdminTransactions: React.FC = () => {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetchData('ADMIN_TRANSACTIONS', 'GET');
-        const payload = Array.isArray(response) ? response : [];
+        const payload = await TransactionService.listAdmin();
 
         const transformed = payload.map(transformTransaction);
         setTransactions(transformed);

@@ -26,7 +26,7 @@ import {
   SortableTableHead,
 } from '@/components/ui/table';
 import { useTableSort } from '@/hooks/useTableSort';
-import { fetchEnvelope } from '@/lib/api/crud';
+import { AuditService } from '@/lib/api/services';
 import { cn } from '@/lib/utils';
 import type { AuditTrail, AuditTrailsResponse } from '@/types/audit';
 import type { StatusType } from '@/components/shared/StatusBadge';
@@ -270,7 +270,7 @@ export const MerchantAuditTrail: React.FC = () => {
         if (dateFrom) query.date_from = dateFrom;
         if (dateTo) query.date_to = dateTo;
 
-        const response: AuditTrailsResponse = await fetchEnvelope('MERCHANT_AUDIT_TRAILS', 'GET', {}, null, query);
+        const response: AuditTrailsResponse = await AuditService.listMerchantTrails(query);
         const trails = Array.isArray(response.data) ? response.data : [];
         setAuditData(trails);
         setTotalPages(response.meta?.total_pages || 1);

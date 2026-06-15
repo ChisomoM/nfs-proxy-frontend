@@ -28,7 +28,7 @@ import {
   SortableTableHead,
 } from '@/components/ui/table';
 import { useTableSort } from '@/hooks/useTableSort';
-import { fetchData, fetchEnvelope } from '@/lib/api/crud';
+import { AuditService, MerchantService } from '@/lib/api/services';
 import { cn } from '@/lib/utils';
 import type { AuditTrail, AuditTrailsResponse } from '@/types/audit';
 import type { StatusType } from '@/components/shared/StatusBadge';
@@ -279,13 +279,9 @@ export const AdminAuditTrail: React.FC = () => {
   const pageSize = 25;
 
   useEffect(() => {
-    fetchData('LIST_MERCHANTS', 'GET').then((merchants: any) => {
-      if (Array.isArray(merchants)) {
-        const lookup: Record<string, string> = {};
-        merchants.forEach((m: any) => { if (m.id) lookup[m.id] = m.business_name || m.id; });
-        setMerchantLookup(lookup);
-      }
-    }).catch(() => {});
+    MerchantService.listMerchantsLookup()
+      .then(setMerchantLookup)
+      .catch(() => {});
   }, []);
 
   const loadAuditTrail = async () => {
@@ -304,7 +300,7 @@ export const AdminAuditTrail: React.FC = () => {
       if (dateFrom) queryParams.date_from = dateFrom;
       if (dateTo) queryParams.date_to = dateTo;
 
-      const response: AuditTrailsResponse = await fetchEnvelope('ADMIN_AUDIT_TRAILS', 'GET', {}, null, queryParams);
+      const response: AuditTrailsResponse = await AuditService.listAdminTrails(queryParams);
       const trails = Array.isArray(response.data) ? response.data : [];
       setAuditData(trails);
       setTotalPages(response.meta?.total_pages || 1);

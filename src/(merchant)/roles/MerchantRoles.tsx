@@ -21,15 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { fetchData } from '@/lib/api/crud';
-
-interface RoleModel {
-  id: string;
-  name: string;
-  app_id?: string;
-  is_global: boolean;
-  created_at: string;
-}
+import { MerchantRolesService, type RoleModel } from '@/lib/api/services';
 
 type Permissions = Record<string, string[]>;
 
@@ -60,11 +52,11 @@ export const MerchantRoles: React.FC = () => {
     setError(null);
     try {
       const [rolesRes, permsRes] = await Promise.all([
-        fetchData('MERCHANT_LIST_ROLES', 'GET'),
-        fetchData('GET_PERMISSIONS', 'GET', {}, null, { group: 'client' }),
+        MerchantRolesService.listRoles(),
+        MerchantRolesService.getPermissions(),
       ]);
-      setRoles(Array.isArray(rolesRes) ? rolesRes : []);
-      setAvailablePermissions(permsRes ?? {});
+      setRoles(rolesRes);
+      setAvailablePermissions(permsRes);
     } catch (err: any) {
       setError('Failed to load roles');
       toast.error('Failed to load roles');
@@ -109,14 +101,10 @@ export const MerchantRoles: React.FC = () => {
 setIsSaving(true);
     try {
       if (editingRole) {
-        await fetchData('MERCHANT_UPDATE_ROLE', 'PUT', { id: editingRole.id }, { name: roleName });
+        await MerchantRolesService.updateRole(editingRole.id, roleName);
         toast.success('Role updated');
       } else {
-        await fetchData('MERCHANT_CREATE_ROLE', 'POST', {}, {
-          name: roleName,
-          is_global: false,
-          permissions: selectedPerms,
-        });
+        await MerchantRolesService.createRole(roleName, selectedPerms);
         toast.success('Role created');
       }
       setDialogOpen(false);
@@ -131,7 +119,7 @@ setIsSaving(true);
   const handleDelete = async (role: RoleModel) => {
     if (!window.confirm(`Delete role "${role.name}"? This cannot be undone.`)) return;
     try {
-      await fetchData('MERCHANT_DELETE_ROLE', 'DELETE', { id: role.id });
+      await MerchantRolesService.deleteRole(role.id);
       toast.success('Role deleted');
       fetchRoles();
     } catch (err: any) {

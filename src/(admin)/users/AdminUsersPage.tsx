@@ -19,8 +19,7 @@ import { toast } from 'sonner';
 import { UserTable } from '@/components/user-management/UserTable';
 import { InviteUserDialog } from '@/components/user-management/InviteUserDialog';
 import { StatCard } from '@/components/shared/StatCard';
-import { fetchData } from '@/lib/api/crud';
-import { getRoute, pipe } from '@/lib/api/end_points';
+import { SystemUsersService } from '@/lib/api/services';
 import type { User, UserStatus } from '@/types/auth';
 
 const containerVariants = {
@@ -70,9 +69,8 @@ export const AdminUsersPage: React.FC = () => {
     setStaffLoading(true);
     setStaffError(null);
     try {
-      const response = await fetchData('LIST_SYSTEM_USERS', 'GET', {}, null, buildQuery());
-      const list = response?.data ?? response;
-      setStaffUsers(Array.isArray(list) ? list : []);
+      const list = await SystemUsersService.listStaff(buildQuery());
+      setStaffUsers(list);
     } catch {
       setStaffError('Failed to load staff users');
       toast.error('Failed to load staff users');
@@ -87,9 +85,8 @@ export const AdminUsersPage: React.FC = () => {
     try {
       const q = buildQuery();
       if (merchantFilter.trim()) q.merchant_id = merchantFilter.trim();
-      const response = await fetchData('LIST_MERCHANT_ADMINS', 'GET', {}, null, q);
-      const list = response?.data ?? response;
-      setMerchantUsers(Array.isArray(list) ? list : []);
+      const list = await SystemUsersService.listMerchantAdmins(q);
+      setMerchantUsers(list);
     } catch {
       setMerchantError('Failed to load merchant admins');
       toast.error('Failed to load merchant admins');
@@ -112,12 +109,7 @@ export const AdminUsersPage: React.FC = () => {
   const handleInviteUser = async (data: { email: string; name: string; role: string }) => {
     setIsInviting(true);
     try {
-      await fetchData('INVITE_SYSTEM_USER', 'POST', {}, {
-        email: data.email,
-        name: data.name,
-        role: data.role,
-        is_staff: true,
-      });
+      await SystemUsersService.invite(data);
       toast.success('Invitation sent successfully');
       fetchStaff();
     } catch (err: any) {
@@ -129,11 +121,10 @@ export const AdminUsersPage: React.FC = () => {
 
   const handleSetStatus = async (user: User, status: UserStatus) => {
     try {
-      const key = activeTab === 'staff' ? 'SET_STATUS_SYSTEM_USER' : 'RESEND_INVITE_MERCHANT_USER';
       if (activeTab === 'staff') {
-        await fetchData(key, 'PATCH', { user_id: user.id }, { status });
+        await SystemUsersService.setStatus(user.id, status);
       } else {
-        await fetchData('UPDATE_MERCHANT_USER', 'PATCH', { user_id: user.id }, { status });
+        await SystemUsersService.updateMerchantAdminStatus(user.id, status);
       }
       toast.success(`User ${status === 'active' ? 'activated' : status}`);
       currentRefetch();
@@ -143,9 +134,12 @@ export const AdminUsersPage: React.FC = () => {
   };
 
   const handleResendInvite = async (user: User) => {
-    const key = activeTab === 'staff' ? 'RESEND_INVITE_SYSTEM_USER' : 'RESEND_INVITE_MERCHANT_USER';
     try {
-      await fetchData(key, 'POST', { user_id: user.id });
+      if (activeTab === 'staff') {
+        await SystemUsersService.resendInvite(user.id);
+      } else {
+        await SystemUsersService.resendMerchantAdminInvite(user.id);
+      }
       toast.success('Invitation resent successfully');
     } catch {
       toast.error('Failed to resend invitation');
@@ -153,9 +147,12 @@ export const AdminUsersPage: React.FC = () => {
   };
 
   const handleResetPassword = async (user: User) => {
-    const key = activeTab === 'staff' ? 'RESET_PASSWORD_SYSTEM_USER' : 'RESET_PASSWORD_MERCHANT_USER';
     try {
-      await fetchData(key, 'POST', { user_id: user.id });
+      if (activeTab === 'staff') {
+        await SystemUsersService.resetPassword(user.id);
+      } else {
+        await SystemUsersService.resetMerchantAdminPassword(user.id);
+      }
       toast.success('Password reset email sent');
     } catch {
       toast.error('Failed to send password reset');
@@ -164,9 +161,12 @@ export const AdminUsersPage: React.FC = () => {
 
   const handleDelete = async (user: User) => {
     if (!window.confirm('Delete this user? This cannot be undone.')) return;
-    const key = activeTab === 'staff' ? 'DELETE_SYSTEM_USER' : 'DELETE_MERCHANT_USER';
     try {
-      await fetchData(key, 'DELETE', { user_id: user.id });
+      if (activeTab === 'staff') {
+        await SystemUsersService.delete(user.id);
+      } else {
+        await SystemUsersService.deleteMerchantAdmin(user.id);
+      }
       toast.success('User removed');
       currentRefetch();
     } catch {

@@ -21,15 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { fetchData } from '@/lib/api/crud';
-
-interface RoleModel {
-  id: string;
-  name: string;
-  app_id?: string;
-  is_global: boolean;
-  created_at: string;
-}
+import { AdminRolesService, type RoleModel } from '@/lib/api/services';
 
 type Permissions = Record<string, string[]>;
 
@@ -60,11 +52,11 @@ export const AdminRoles: React.FC = () => {
     setError(null);
     try {
       const [rolesRes, permsRes] = await Promise.all([
-        fetchData('LIST_ROLES', 'GET', {}, null, { is_global: 'true' }),
-        fetchData('GET_PERMISSIONS', 'GET', {}, null, { group: 'staff' }),
+        AdminRolesService.listRoles(),
+        AdminRolesService.getPermissions(),
       ]);
-      setRoles(Array.isArray(rolesRes) ? rolesRes : []);
-      setAvailablePermissions(permsRes ?? {});
+      setRoles(rolesRes);
+      setAvailablePermissions(permsRes);
     } catch (err: any) {
       setError('Failed to load roles');
       toast.error('Failed to load roles');
@@ -109,14 +101,10 @@ export const AdminRoles: React.FC = () => {
     setIsSaving(true);
     try {
       if (editingRole) {
-        await fetchData('UPDATE_ROLE', 'PUT', { id: editingRole.id }, { name: roleName });
+        await AdminRolesService.updateRole(editingRole.id, roleName);
         toast.success('Role updated');
       } else {
-        await fetchData('CREATE_ROLE', 'POST', {}, {
-          name: roleName,
-          is_global: true,
-          permissions: selectedPerms,
-        });
+        await AdminRolesService.createRole(roleName, selectedPerms);
         toast.success('Role created');
       }
       setDialogOpen(false);
@@ -131,7 +119,7 @@ export const AdminRoles: React.FC = () => {
   const handleDelete = async (role: RoleModel) => {
     if (!window.confirm(`Delete role "${role.name}"? This cannot be undone.`)) return;
     try {
-      await fetchData('DELETE_ROLE', 'DELETE', { id: role.id });
+      await AdminRolesService.deleteRole(role.id);
       toast.success('Role deleted');
       fetchRoles();
     } catch (err: any) {
