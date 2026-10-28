@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Lock, TrendingUp, Activity, Key, Users, AlertCircle, Loader2 } from 'lucide-react';
+import { User, Lock, TrendingUp, Activity, Key, Users, Webhook, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/context/useAuth';
 import { cn } from '@/lib/utils';
 import { MOCK_MERCHANT_PROFILE } from '@/lib/api/merchantProfileMocks';
@@ -17,6 +17,7 @@ import UsageTab from './components/UsageTab';
 import { MerchantAuditTrail } from '../audit/MerchantAuditTrail';
 import { ApiKeyManager } from './api-keys/ApiKeyManager';
 import { AppParticipantManager } from './api-keys/AppParticipantManager';
+import WebhookSettings from './api-keys/WebhookSettings';
 
 const TABS = [
   { id: 'account', label: 'Account', icon: User },
@@ -25,6 +26,7 @@ const TABS = [
   { id: 'activity', label: 'Activity', icon: Activity },
   { id: 'api-keys', label: 'API Keys', icon: Key },
   { id: 'participants', label: 'Participants', icon: Users },
+  { id: 'webhooks', label: 'Webhooks', icon: Webhook },
 ] as const;
 
 export const MerchantSettings: React.FC = () => {
@@ -144,7 +146,7 @@ export const MerchantSettings: React.FC = () => {
         )}
         {activeTab === 'usage' && <UsageTab usage={profileData.usage} />}
         {activeTab === 'activity' && <MerchantAuditTrail />}
-        {(activeTab === 'api-keys' || activeTab === 'participants') && (
+        {(activeTab === 'api-keys' || activeTab === 'participants' || activeTab === 'webhooks') && (
           appSetupError ? (
             <div className="flex items-center justify-center gap-2 py-16 text-danger-fg font-sans text-text-sm">
               <AlertCircle size={16} />
@@ -157,6 +159,8 @@ export const MerchantSettings: React.FC = () => {
             </div>
           ) : activeTab === 'api-keys' ? (
             <ApiKeyManager projectId={canonicalAppId} />
+          ) : activeTab === 'webhooks' ? (
+            <WebhookSettings projectId={canonicalAppId} />
           ) : (
             <AppParticipantManager projectId={canonicalAppId} />
           )

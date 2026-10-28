@@ -25,3 +25,5 @@ export type { RoleModel } from './roles';
 export { AuditService } from './audit';
 
 export { TransactionService } from './transactions';
+
+export { WebhookService } from './webhooks';

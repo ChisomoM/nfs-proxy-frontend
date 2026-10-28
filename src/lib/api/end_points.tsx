@@ -58,6 +58,17 @@ export const API: Record<string, string> = {
   ADD_APP_PARTICIPANT: "merchants/apps/:app_id/participants",
   REMOVE_APP_PARTICIPANT: "merchants/apps/:app_id/participants/:participant_id",
 
+  // WEBHOOK ENDPOINTS (merchant, several per app)
+  MERCHANT_WEBHOOK_EVENTS:     "merchants/webhooks/events",
+  MERCHANT_LIST_WEBHOOKS:      "merchants/webhooks",
+  MERCHANT_CREATE_WEBHOOK:     "merchants/webhooks",
+  MERCHANT_GET_WEBHOOK:        "merchants/webhooks/:id",
+  MERCHANT_UPDATE_WEBHOOK:     "merchants/webhooks/:id",
+  MERCHANT_DELETE_WEBHOOK:     "merchants/webhooks/:id",
+  MERCHANT_TEST_WEBHOOK:       "merchants/webhooks/:id/test",
+  MERCHANT_WEBHOOK_DELIVERIES: "merchants/webhooks/:id/deliveries",
+  MERCHANT_REPLAY_DELIVERY:    "merchants/webhooks/deliveries/:event_id/replay",
+
   // SIMULATOR / EMONEY END-POINTS
   SIMULATOR_EMONEY:           "api/v1/emoney",
   SIMULATOR_CASH_IN:          "api/v1/emoney/cash-in",
